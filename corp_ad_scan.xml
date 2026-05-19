@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///usr/bin/../share/nmap/nmap.xsl" type="text/xsl"?>
+<nmaprun scanner="nmap" args="nmap -sC -sV -O -p- --open -oX corp_ad_scan.xml 10.10.50.0/24" start="1747612800" startstr="Mon May 19 08:00:00 2026" version="7.95" xmloutputversion="1.05">
+<scaninfo type="syn" protocol="tcp" numservices="65535" services="1-65535"/>
+<verbose level="0"/>
+<debugging level="0"/>
+
+<!-- ==================== DC01 - Primary Domain Controller ==================== -->
+<host starttime="1747612801" endtime="1747612920">
+<status state="up" reason="echo-reply" reason_ttl="128"/>
+<address addr="10.10.50.10" addrtype="ipv4"/>
+<hostnames>
+<hostname name="DC01.corp.megacorp.local" type="PTR"/>
+</hostnames>
+<ports>
+<port protocol="tcp" portid="53"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="domain" product="Simple DNS Plus" tunnel="none" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="88"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="kerberos-sec" product="Microsoft Windows Kerberos" extrainfo="server time: 2026-05-19 12:00:15Z" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="135"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="msrpc" product="Microsoft Windows RPC" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="139"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="netbios-ssn" product="Microsoft Windows netbios-ssn" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="389"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ldap" product="Microsoft Windows Active Directory LDAP" extrainfo="Domain: corp.megacorp.local, Site: Default-First-Site-Name" ostype="Windows" method="probed" conf="10"/>
+<script id="ldap-rootdse" output="&#xa;    rootDomainNamingContext: DC=corp,DC=megacorp,DC=local&#xa;    defaultNamingContext: DC=corp,DC=megacorp,DC=local&#xa;    forestFunctionality: 7&#xa;    domainFunctionality: 7&#xa;    domainControllerFunctionality: 7&#xa;    serverName: CN=DC01,CN=Servers,CN=Default-First-Site-Name,CN=Sites,CN=Configuration,DC=corp,DC=megacorp,DC=local"/>
+</port>
+<port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="microsoft-ds" product="Microsoft Windows Server 2022" method="probed" conf="10"/>
+<script id="smb2-security-mode" output="&#xa;  3.1.1:&#xa;    Message signing enabled and required"/>
+<script id="smb2-time" output="&#xa;  date: 2026-05-19T12:00:15&#xa;  start_date: N/A"/>
+<script id="smb-os-discovery" output="&#xa;  OS: Windows Server 2022 Standard 20348 (Windows Server 2022 Standard 6.3)&#xa;  Computer name: DC01&#xa;  NetBIOS computer name: DC01&#xa;  Domain name: corp.megacorp.local&#xa;  Forest name: megacorp.local&#xa;  FQDN: DC01.corp.megacorp.local"/>
+</port>
+<port protocol="tcp" portid="464"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="kpasswd5" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="593"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http-rpc-epmap" product="Microsoft Windows RPC over HTTP" version="1.0" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="636"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ldapssl" product="Microsoft Windows Active Directory LDAP" extrainfo="Domain: corp.megacorp.local" ostype="Windows" method="probed" conf="10">
+<script id="ssl-cert" output="Subject: commonName=DC01.corp.megacorp.local&#xa;Subject Alternative Name: DNS:DC01.corp.megacorp.local&#xa;Issuer: commonName=MegaCorp-DC01-CA&#xa;Public Key type: rsa&#xa;Public Key bits: 2048&#xa;Not valid before: 2025-11-01T00:00:00&#xa;Not valid after:  2027-11-01T00:00:00"/>
+</script>
+</port>
+<port protocol="tcp" portid="3268"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="globalcatLDAP" product="Microsoft Windows Active Directory LDAP" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="3269"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="globalcatLDAPssl" product="Microsoft Windows Active Directory LDAP" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="3389"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ms-wbt-server" product="Microsoft Terminal Services" ostype="Windows" method="probed" conf="10">
+<script id="ssl-cert" output="Subject: commonName=DC01.corp.megacorp.local&#xa;Issuer: commonName=DC01.corp.megacorp.local&#xa;Not valid before: 2026-04-15T00:00:00&#xa;Not valid after:  2026-10-15T00:00:00"/>
+</script>
+</port>
+<port protocol="tcp" portid="5985"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft HTTPAPI httpd" version="2.0" extrainfo="SSDP/UPnP" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="9389"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="adws" product="Microsoft Active Directory Web Services" method="probed" conf="10"/></port>
+</ports>
+<os>
+<osmatch name="Microsoft Windows Server 2022" accuracy="98" line="1">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="2022" accuracy="98"/>
+</osmatch>
+</os>
+<hostscript>
+<script id="clock-skew" output="mean: +0s, deviation: 0s, median: +0s"/>
+<script id="smb2-security-mode" output="&#xa;  3.1.1:&#xa;    Message signing enabled and required"/>
+</hostscript>
+</host>
+
+<!-- ==================== DC02 - Secondary Domain Controller ==================== -->
+<host starttime="1747612801" endtime="1747612915">
+<status state="up" reason="echo-reply" reason_ttl="128"/>
+<address addr="10.10.50.11" addrtype="ipv4"/>
+<hostnames>
+<hostname name="DC02.corp.megacorp.local" type="PTR"/>
+</hostnames>
+<ports>
+<port protocol="tcp" portid="53"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="domain" product="Simple DNS Plus" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="88"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="kerberos-sec" product="Microsoft Windows Kerberos" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="135"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="msrpc" product="Microsoft Windows RPC" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="139"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="netbios-ssn" product="Microsoft Windows netbios-ssn" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="389"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ldap" product="Microsoft Windows Active Directory LDAP" extrainfo="Domain: corp.megacorp.local, Site: Default-First-Site-Name" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="microsoft-ds" product="Microsoft Windows Server 2019" method="probed" conf="10">
+<script id="smb2-security-mode" output="&#xa;  3.1.1:&#xa;    Message signing enabled and required"/>
+<script id="smb-os-discovery" output="&#xa;  OS: Windows Server 2019 Standard 17763 (Windows Server 2019 Standard 6.3)&#xa;  Computer name: DC02&#xa;  NetBIOS computer name: DC02&#xa;  Domain name: corp.megacorp.local&#xa;  Forest name: megacorp.local&#xa;  FQDN: DC02.corp.megacorp.local"/>
+</script>
+</port>
+<port protocol="tcp" portid="464"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="kpasswd5" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="636"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ldapssl" product="Microsoft Windows Active Directory LDAP" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="3268"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="globalcatLDAP" product="Microsoft Windows Active Directory LDAP" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="3269"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="globalcatLDAPssl" product="Microsoft Windows Active Directory LDAP" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="3389"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ms-wbt-server" product="Microsoft Terminal Services" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="5985"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft HTTPAPI httpd" version="2.0" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="9389"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="adws" product="Microsoft Active Directory Web Services" method="probed" conf="10"/></port>
+</ports>
+<os>
+<osmatch name="Microsoft Windows Server 2019" accuracy="97" line="1">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="2019" accuracy="97"/>
+</osmatch>
+</os>
+</host>
+
+<!-- ==================== ADCS01 - Certificate Authority ==================== -->
+<host starttime="1747612802" endtime="1747612910">
+<status state="up" reason="echo-reply" reason_ttl="128"/>
+<address addr="10.10.50.15" addrtype="ipv4"/>
+<hostnames>
+<hostname name="ADCS01.corp.megacorp.local" type="PTR"/>
+</hostnames>
+<ports>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft IIS httpd" version="10.0" ostype="Windows" method="probed" conf="10">
+<script id="http-title" output="IIS Windows Server"/>
+<script id="http-methods" output="&#xa;  Potentially risky methods: TRACE"/>
+</script>
+</port>
+<port protocol="tcp" portid="135"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="msrpc" product="Microsoft Windows RPC" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="443"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft IIS httpd" version="10.0" ostype="Windows" method="probed" conf="10">
+<script id="http-title" output="MegaCorp-DC01-CA - Microsoft Active Directory Certificate Services"/>
+<script id="ssl-cert" output="Subject: commonName=ADCS01.corp.megacorp.local&#xa;Issuer: commonName=MegaCorp-DC01-CA&#xa;Not valid before: 2025-06-15T00:00:00&#xa;Not valid after:  2027-06-15T00:00:00"/>
+</script>
+</port>
+<port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="microsoft-ds" product="Microsoft Windows Server 2022" method="probed" conf="10">
+<script id="smb2-security-mode" output="&#xa;  3.1.1:&#xa;    Message signing enabled but not required"/>
+<script id="smb-os-discovery" output="&#xa;  OS: Windows Server 2022 Standard 20348&#xa;  Computer name: ADCS01&#xa;  Domain name: corp.megacorp.local&#xa;  FQDN: ADCS01.corp.megacorp.local"/>
+</script>
+</port>
+<port protocol="tcp" portid="3389"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ms-wbt-server" product="Microsoft Terminal Services" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="5985"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft HTTPAPI httpd" version="2.0" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="49667"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="msrpc" product="Microsoft Windows RPC" ostype="Windows" method="probed" conf="10"/></port>
+</ports>
+<os>
+<osmatch name="Microsoft Windows Server 2022" accuracy="97" line="1">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="2022" accuracy="97"/>
+</osmatch>
+</os>
+</host>
+
+<!-- ==================== FS01 - File Server ==================== -->
+<host starttime="1747612802" endtime="1747612908">
+<status state="up" reason="echo-reply" reason_ttl="128"/>
+<address addr="10.10.50.20" addrtype="ipv4"/>
+<hostnames>
+<hostname name="FS01.corp.megacorp.local" type="PTR"/>
+</hostnames>
+<ports>
+<port protocol="tcp" portid="135"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="msrpc" product="Microsoft Windows RPC" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="139"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="netbios-ssn" product="Microsoft Windows netbios-ssn" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="microsoft-ds" product="Microsoft Windows Server 2016" method="probed" conf="10">
+<script id="smb2-security-mode" output="&#xa;  3.1.1:&#xa;    Message signing enabled but not required"/>
+<script id="smb-os-discovery" output="&#xa;  OS: Windows Server 2016 Standard 14393 (Windows Server 2016 Standard 6.3)&#xa;  Computer name: FS01&#xa;  Domain name: corp.megacorp.local&#xa;  FQDN: FS01.corp.megacorp.local"/>
+<script id="smb-enum-shares" output="&#xa;  account_used: guest&#xa;  \\10.10.50.20\ADMIN$:&#xa;    Type: STYPE_DISKTREE_HIDDEN&#xa;    Comment: Remote Admin&#xa;    Anonymous access: &lt;none&gt;&#xa;  \\10.10.50.20\C$:&#xa;    Type: STYPE_DISKTREE_HIDDEN&#xa;    Comment: Default share&#xa;    Anonymous access: &lt;none&gt;&#xa;  \\10.10.50.20\Department_Shares:&#xa;    Type: STYPE_DISKTREE&#xa;    Comment: Department File Shares&#xa;    Anonymous access: READ&#xa;  \\10.10.50.20\IT_Internal:&#xa;    Type: STYPE_DISKTREE&#xa;    Comment: IT Department&#xa;    Anonymous access: &lt;none&gt;&#xa;  \\10.10.50.20\Backups:&#xa;    Type: STYPE_DISKTREE&#xa;    Comment: Nightly Backups&#xa;    Anonymous access: &lt;none&gt;&#xa;  \\10.10.50.20\IPC$:&#xa;    Type: STYPE_IPC_HIDDEN&#xa;    Comment: Remote IPC&#xa;    Anonymous access: READ"/>
+</script>
+</port>
+<port protocol="tcp" portid="3389"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ms-wbt-server" product="Microsoft Terminal Services" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="5985"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft HTTPAPI httpd" version="2.0" method="probed" conf="10"/></port>
+</ports>
+<os>
+<osmatch name="Microsoft Windows Server 2016" accuracy="96" line="1">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="2016" accuracy="96"/>
+</osmatch>
+</os>
+</host>
+
+<!-- ==================== WEB01 - Internal Web App Server ==================== -->
+<host starttime="1747612803" endtime="1747612905">
+<status state="up" reason="echo-reply" reason_ttl="128"/>
+<address addr="10.10.50.30" addrtype="ipv4"/>
+<hostnames>
+<hostname name="WEB01.corp.megacorp.local" type="PTR"/>
+</hostnames>
+<ports>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft IIS httpd" version="10.0" ostype="Windows" method="probed" conf="10">
+<script id="http-title" output="MegaCorp Intranet Portal"/>
+<script id="http-server-header" output="Microsoft-IIS/10.0"/>
+<script id="http-methods" output="&#xa;  Potentially risky methods: TRACE PUT DELETE"/>
+</script>
+</port>
+<port protocol="tcp" portid="135"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="msrpc" product="Microsoft Windows RPC" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="443"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft IIS httpd" version="10.0" ostype="Windows" method="probed" conf="10">
+<script id="http-title" output="MegaCorp Intranet Portal"/>
+<script id="ssl-cert" output="Subject: commonName=intranet.corp.megacorp.local&#xa;Subject Alternative Name: DNS:intranet.corp.megacorp.local, DNS:portal.corp.megacorp.local&#xa;Issuer: commonName=MegaCorp-DC01-CA&#xa;Not valid before: 2026-01-10T00:00:00&#xa;Not valid after:  2027-01-10T00:00:00"/>
+</script>
+</port>
+<port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="microsoft-ds" product="Microsoft Windows Server 2022" method="probed" conf="10">
+<script id="smb2-security-mode" output="&#xa;  3.1.1:&#xa;    Message signing enabled but not required"/>
+</script>
+</port>
+<port protocol="tcp" portid="1433"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ms-sql-s" product="Microsoft SQL Server 2019" version="15.00.2000" method="probed" conf="10">
+<script id="ms-sql-info" output="&#xa;  10.10.50.30:1433:&#xa;    Version:&#xa;      name: Microsoft SQL Server 2019 RTM&#xa;      number: 15.00.2000.00&#xa;      Product: Microsoft SQL Server 2019&#xa;    TCP port: 1433&#xa;    Named pipe: \\10.10.50.30\pipe\sql\query"/>
+<script id="ms-sql-ntlm-info" output="&#xa;  10.10.50.30:1433:&#xa;    Target_Name: MEGACORP&#xa;    NetBIOS_Domain_Name: MEGACORP&#xa;    NetBIOS_Computer_Name: WEB01&#xa;    DNS_Domain_Name: corp.megacorp.local&#xa;    DNS_Computer_Name: WEB01.corp.megacorp.local&#xa;    DNS_Tree_Name: megacorp.local"/>
+</script>
+</port>
+<port protocol="tcp" portid="3389"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ms-wbt-server" product="Microsoft Terminal Services" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="5985"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft HTTPAPI httpd" version="2.0" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="8443"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Apache Tomcat" version="9.0.68" method="probed" conf="10">
+<script id="http-title" output="MegaCorp HR Self-Service"/>
+</script>
+</port>
+</ports>
+<os>
+<osmatch name="Microsoft Windows Server 2022" accuracy="97" line="1">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="2022" accuracy="97"/>
+</osmatch>
+</os>
+</host>
+
+<!-- ==================== EXCH01 - Exchange Server ==================== -->
+<host starttime="1747612803" endtime="1747612912">
+<status state="up" reason="echo-reply" reason_ttl="128"/>
+<address addr="10.10.50.40" addrtype="ipv4"/>
+<hostnames>
+<hostname name="EXCH01.corp.megacorp.local" type="PTR"/>
+</hostnames>
+<ports>
+<port protocol="tcp" portid="25"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="smtp" product="Microsoft Exchange smtpd" method="probed" conf="10">
+<script id="smtp-ntlm-info" output="&#xa;  Target_Name: MEGACORP&#xa;  NetBIOS_Domain_Name: MEGACORP&#xa;  NetBIOS_Computer_Name: EXCH01&#xa;  DNS_Domain_Name: corp.megacorp.local&#xa;  DNS_Computer_Name: EXCH01.corp.megacorp.local"/>
+</script>
+</port>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft IIS httpd" version="10.0" ostype="Windows" method="probed" conf="10">
+<script id="http-title" output="302 - Moved"/>
+</script>
+</port>
+<port protocol="tcp" portid="135"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="msrpc" product="Microsoft Windows RPC" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="443"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft IIS httpd" version="10.0" ostype="Windows" method="probed" conf="10">
+<script id="http-title" output="Outlook Web App"/>
+<script id="ssl-cert" output="Subject: commonName=mail.megacorp.local&#xa;Subject Alternative Name: DNS:mail.megacorp.local, DNS:autodiscover.megacorp.local&#xa;Issuer: commonName=MegaCorp-DC01-CA&#xa;Not valid before: 2025-12-01T00:00:00&#xa;Not valid after:  2027-12-01T00:00:00"/>
+</script>
+</port>
+<port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="microsoft-ds" product="Microsoft Windows Server 2019" method="probed" conf="10">
+<script id="smb2-security-mode" output="&#xa;  3.1.1:&#xa;    Message signing enabled but not required"/>
+</script>
+</port>
+<port protocol="tcp" portid="587"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="smtp" product="Microsoft Exchange smtpd" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="993"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="imaps" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="3389"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ms-wbt-server" product="Microsoft Terminal Services" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="5985"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft HTTPAPI httpd" version="2.0" method="probed" conf="10"/></port>
+</ports>
+<os>
+<osmatch name="Microsoft Windows Server 2019" accuracy="96" line="1">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="2019" accuracy="96"/>
+</osmatch>
+</os>
+</host>
+
+<!-- ==================== SCCM01 - SCCM / MECM Server ==================== -->
+<host starttime="1747612804" endtime="1747612900">
+<status state="up" reason="echo-reply" reason_ttl="128"/>
+<address addr="10.10.50.50" addrtype="ipv4"/>
+<hostnames>
+<hostname name="SCCM01.corp.megacorp.local" type="PTR"/>
+</hostnames>
+<ports>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft IIS httpd" version="10.0" ostype="Windows" method="probed" conf="10">
+<script id="http-title" output="SMS_DP_SMSPKG$"/>
+</script>
+</port>
+<port protocol="tcp" portid="135"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="msrpc" product="Microsoft Windows RPC" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="443"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft IIS httpd" version="10.0" ostype="Windows" method="probed" conf="10">
+<script id="http-title" output="Configuration Manager"/>
+</script>
+</port>
+<port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="microsoft-ds" product="Microsoft Windows Server 2022" method="probed" conf="10">
+<script id="smb2-security-mode" output="&#xa;  3.1.1:&#xa;    Message signing enabled but not required"/>
+</script>
+</port>
+<port protocol="tcp" portid="1433"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ms-sql-s" product="Microsoft SQL Server 2019" version="15.00.4355" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="3389"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ms-wbt-server" product="Microsoft Terminal Services" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="5985"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft HTTPAPI httpd" version="2.0" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="8530"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft IIS httpd" version="10.0" method="probed" conf="10">
+<script id="http-title" output="WSUS Administration"/>
+</script>
+</port>
+<port protocol="tcp" portid="8531"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="https" product="Microsoft IIS httpd" version="10.0" method="probed" conf="10"/></port>
+</ports>
+<os>
+<osmatch name="Microsoft Windows Server 2022" accuracy="97" line="1">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="2022" accuracy="97"/>
+</osmatch>
+</os>
+</host>
+
+<!-- ==================== LNX-SPLUNK01 - Splunk / SIEM ==================== -->
+<host starttime="1747612804" endtime="1747612895">
+<status state="up" reason="echo-reply" reason_ttl="64"/>
+<address addr="10.10.50.60" addrtype="ipv4"/>
+<hostnames>
+<hostname name="splunk01.corp.megacorp.local" type="PTR"/>
+</hostnames>
+<ports>
+<port protocol="tcp" portid="22"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="ssh" product="OpenSSH" version="8.9p1 Ubuntu 3ubuntu0.10" extrainfo="Ubuntu Linux; protocol 2.0" ostype="Linux" method="probed" conf="10">
+<script id="ssh-hostkey" output="&#xa;  3072 aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99 (RSA)&#xa;  256 a1:b2:c3:d4:e5:f6:07:18:29:3a:4b:5c:6d:7e:8f:90 (ECDSA)&#xa;  256 f0:e1:d2:c3:b4:a5:96:87:78:69:5a:4b:3c:2d:1e:0f (ED25519)"/>
+</script>
+</port>
+<port protocol="tcp" portid="8000"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" product="Splunkd httpd" method="probed" conf="10">
+<script id="http-title" output="Splunk | Login"/>
+</script>
+</port>
+<port protocol="tcp" portid="8089"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="ssl/http" product="Splunkd httpd" method="probed" conf="10">
+<script id="http-title" output="splunkd"/>
+</script>
+</port>
+<port protocol="tcp" portid="8191"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" product="Splunkd httpd" extrainfo="KV Store" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="9997"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="splunk-forwarder" method="probed" conf="8"/></port>
+</ports>
+<os>
+<osmatch name="Linux 5.15" accuracy="96" line="1">
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="5.X" accuracy="96"/>
+</osmatch>
+</os>
+</host>
+
+<!-- ==================== WS01 - Developer Workstation ==================== -->
+<host starttime="1747612805" endtime="1747612890">
+<status state="up" reason="echo-reply" reason_ttl="128"/>
+<address addr="10.10.50.101" addrtype="ipv4"/>
+<hostnames>
+<hostname name="WS01.corp.megacorp.local" type="PTR"/>
+</hostnames>
+<ports>
+<port protocol="tcp" portid="135"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="msrpc" product="Microsoft Windows RPC" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="139"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="netbios-ssn" product="Microsoft Windows netbios-ssn" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="microsoft-ds" method="probed" conf="10">
+<script id="smb2-security-mode" output="&#xa;  3.1.1:&#xa;    Message signing enabled but not required"/>
+<script id="smb-os-discovery" output="&#xa;  OS: Windows 11 Enterprise 22621 (Windows 11 Enterprise 6.3)&#xa;  Computer name: WS01&#xa;  Domain name: corp.megacorp.local&#xa;  FQDN: WS01.corp.megacorp.local"/>
+</script>
+</port>
+<port protocol="tcp" portid="3389"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ms-wbt-server" product="Microsoft Terminal Services" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="5985"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft HTTPAPI httpd" version="2.0" method="probed" conf="10"/></port>
+</ports>
+<os>
+<osmatch name="Microsoft Windows 11" accuracy="95" line="1">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="11" accuracy="95"/>
+</osmatch>
+</os>
+</host>
+
+<!-- ==================== WS02 - HR Workstation ==================== -->
+<host starttime="1747612805" endtime="1747612888">
+<status state="up" reason="echo-reply" reason_ttl="128"/>
+<address addr="10.10.50.102" addrtype="ipv4"/>
+<hostnames>
+<hostname name="WS02.corp.megacorp.local" type="PTR"/>
+</hostnames>
+<ports>
+<port protocol="tcp" portid="135"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="msrpc" product="Microsoft Windows RPC" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="139"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="netbios-ssn" product="Microsoft Windows netbios-ssn" ostype="Windows" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="microsoft-ds" method="probed" conf="10">
+<script id="smb2-security-mode" output="&#xa;  3.1.1:&#xa;    Message signing enabled but not required"/>
+<script id="smb-os-discovery" output="&#xa;  OS: Windows 10 Pro 19045 (Windows 10 Pro 6.3)&#xa;  Computer name: WS02&#xa;  Domain name: corp.megacorp.local&#xa;  FQDN: WS02.corp.megacorp.local"/>
+</script>
+</port>
+<port protocol="tcp" portid="3389"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ms-wbt-server" product="Microsoft Terminal Services" ostype="Windows" method="probed" conf="10"/></port>
+</ports>
+<os>
+<osmatch name="Microsoft Windows 10" accuracy="94" line="1">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="10" accuracy="94"/>
+</osmatch>
+</os>
+</host>
+
+<runstats>
+<finished time="1747612920" timestr="Mon May 19 08:02:00 2026" summary="Nmap done at Mon May 19 08:02:00 2026; 256 IP addresses (9 hosts up) scanned in 120.00 seconds" elapsed="120.00" exit="success"/>
+<hosts up="9" down="247" total="256"/>
+</runstats>
+</nmaprun>
