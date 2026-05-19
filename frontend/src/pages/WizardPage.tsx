@@ -33,6 +33,7 @@ const KINDS: { value: WorkstreamKind; label: string }[] = [
   { value: "cloud", label: "Cloud" },
   { value: "social", label: "Social Engineering" },
   { value: "physical", label: "Physical" },
+  { value: "inject", label: "Inject" },
   { value: "other", label: "Other" },
 ];
 

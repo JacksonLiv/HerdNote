@@ -43,6 +43,7 @@ export type WorkstreamKind =
   | "cloud"
   | "social"
   | "physical"
+  | "inject"
   | "other";
 export interface WorkstreamInput {
   name: string;
@@ -786,6 +787,9 @@ export interface DashboardData {
     compromised_count: number;
     finding_count: number;
   }[];
+  open_injects: number;
+  overdue_injects: number;
+  first_inject_workstream_id: string | null;
 }
 
 export const getDashboard = async (
@@ -1000,4 +1004,268 @@ export const createOplog = async (
   (await api.post<OplogEntry>(`/engagements/${eid}/oplog`, body)).data;
 export const deleteOplog = async (eid: string, id: string): Promise<void> => {
   await api.delete(`/engagements/${eid}/oplog/${id}`);
+};
+
+// ---- playbook ----
+export type PlaybookStatus = "todo" | "in_progress" | "done" | "na";
+export interface PlaybookStateEntry {
+  id: string;
+  workstream_id: string;
+  task_key: string;
+  status: PlaybookStatus;
+  notes_md: string | null;
+  updated_at: string;
+  updated_by: string | null;
+}
+export interface WorkstreamNote {
+  id: string;
+  workstream_id: string;
+  category: string;
+  task_key: string | null;
+  title: string;
+  body_md: string | null;
+  data: Record<string, unknown>;
+  created_at: string;
+  created_by: string | null;
+}
+export interface PlaybookEnvelope {
+  state: PlaybookStateEntry[];
+  notes: WorkstreamNote[];
+}
+
+export const getPlaybook = async (
+  eid: string,
+  wsId: string,
+): Promise<PlaybookEnvelope> =>
+  (
+    await api.get<PlaybookEnvelope>(
+      `/engagements/${eid}/workstreams/${wsId}/playbook`,
+    )
+  ).data;
+
+export const setPlaybookState = async (
+  eid: string,
+  wsId: string,
+  taskKey: string,
+  body: { status?: PlaybookStatus; notes_md?: string | null },
+): Promise<PlaybookStateEntry> =>
+  (
+    await api.patch<PlaybookStateEntry>(
+      `/engagements/${eid}/workstreams/${wsId}/playbook/state/${encodeURIComponent(taskKey)}`,
+      body,
+    )
+  ).data;
+
+export const createPlaybookNote = async (
+  eid: string,
+  wsId: string,
+  body: {
+    category: string;
+    task_key?: string | null;
+    title: string;
+    body_md?: string | null;
+    data?: Record<string, unknown>;
+  },
+): Promise<WorkstreamNote> =>
+  (
+    await api.post<WorkstreamNote>(
+      `/engagements/${eid}/workstreams/${wsId}/playbook/notes`,
+      body,
+    )
+  ).data;
+
+export const updatePlaybookNote = async (
+  eid: string,
+  wsId: string,
+  noteId: string,
+  body: Partial<{
+    category: string;
+    task_key: string | null;
+    title: string;
+    body_md: string | null;
+    data: Record<string, unknown>;
+  }>,
+): Promise<WorkstreamNote> =>
+  (
+    await api.patch<WorkstreamNote>(
+      `/engagements/${eid}/workstreams/${wsId}/playbook/notes/${noteId}`,
+      body,
+    )
+  ).data;
+
+export const deletePlaybookNote = async (
+  eid: string,
+  wsId: string,
+  noteId: string,
+): Promise<void> => {
+  await api.delete(
+    `/engagements/${eid}/workstreams/${wsId}/playbook/notes/${noteId}`,
+  );
+};
+
+// ---- inject ----
+export type InjectSource = "remote_email" | "in_person" | "other";
+export type InjectCategory =
+  | "phishing_create"
+  | "phishing_classify"
+  | "network_question"
+  | "general_question"
+  | "other";
+export type InjectStatus =
+  | "open"
+  | "in_progress"
+  | "responded"
+  | "closed"
+  | "deferred";
+export type InjectPriority = "low" | "normal" | "high";
+export type InjectVerdict = "phishing" | "legit" | "suspicious" | "inconclusive";
+export type InjectTemplateCategory = InjectCategory | "pretext";
+
+export interface Inject {
+  id: string;
+  engagement_id: string;
+  workstream_id: string;
+  source: InjectSource;
+  arrived_at: string;
+  received_by: string | null;
+  requester: string | null;
+  category: InjectCategory;
+  subject: string;
+  body_md: string | null;
+  deadline: string | null;
+  status: InjectStatus;
+  priority: InjectPriority;
+  assigned_to: string | null;
+  response_md: string | null;
+  responded_at: string | null;
+  responded_by: string | null;
+  attachments: Array<Record<string, unknown>>;
+  verdict: InjectVerdict | null;
+}
+
+export interface InjectInput {
+  workstream_id: string;
+  source?: InjectSource;
+  requester?: string | null;
+  category?: InjectCategory;
+  subject: string;
+  body_md?: string | null;
+  deadline?: string | null;
+  priority?: InjectPriority;
+  assigned_to?: string | null;
+}
+
+export interface InjectPatch {
+  workstream_id?: string;
+  source?: InjectSource;
+  requester?: string | null;
+  category?: InjectCategory;
+  subject?: string;
+  body_md?: string | null;
+  deadline?: string | null;
+  status?: InjectStatus;
+  priority?: InjectPriority;
+  assigned_to?: string | null;
+  response_md?: string | null;
+  verdict?: InjectVerdict | null;
+}
+
+export interface InjectTemplate {
+  id: string;
+  engagement_id: string | null;
+  category: InjectTemplateCategory;
+  title: string;
+  body_md: string;
+  tags: string[];
+  created_at: string;
+  created_by: string | null;
+}
+
+export interface InjectTemplateInput {
+  category: InjectTemplateCategory;
+  title: string;
+  body_md: string;
+  tags?: string[];
+  is_global?: boolean;
+}
+
+export const listInjects = async (
+  eid: string,
+  opts: {
+    workstreamId?: string;
+    statusFilter?: InjectStatus;
+    category?: InjectCategory;
+    q?: string;
+  } = {},
+): Promise<Inject[]> =>
+  (
+    await api.get<Inject[]>(`/engagements/${eid}/injects`, {
+      params: {
+        ...(opts.workstreamId ? { workstream_id: opts.workstreamId } : {}),
+        ...(opts.statusFilter ? { status_filter: opts.statusFilter } : {}),
+        ...(opts.category ? { category: opts.category } : {}),
+        ...(opts.q ? { q: opts.q } : {}),
+      },
+    })
+  ).data;
+
+export const createInject = async (
+  eid: string,
+  body: InjectInput,
+): Promise<Inject> =>
+  (await api.post<Inject>(`/engagements/${eid}/injects`, body)).data;
+
+export const getInject = async (eid: string, id: string): Promise<Inject> =>
+  (await api.get<Inject>(`/engagements/${eid}/injects/${id}`)).data;
+
+export const updateInject = async (
+  eid: string,
+  id: string,
+  body: InjectPatch,
+): Promise<Inject> =>
+  (await api.patch<Inject>(`/engagements/${eid}/injects/${id}`, body)).data;
+
+export const deleteInject = async (eid: string, id: string): Promise<void> => {
+  await api.delete(`/engagements/${eid}/injects/${id}`);
+};
+
+export const listInjectTemplates = async (
+  eid: string,
+  opts: { category?: InjectTemplateCategory; q?: string; include_global?: boolean } = {},
+): Promise<InjectTemplate[]> =>
+  (
+    await api.get<InjectTemplate[]>(`/engagements/${eid}/inject-templates`, {
+      params: {
+        ...(opts.category ? { category: opts.category } : {}),
+        ...(opts.q ? { q: opts.q } : {}),
+        include_global: opts.include_global ?? true,
+      },
+    })
+  ).data;
+
+export const createInjectTemplate = async (
+  eid: string,
+  body: InjectTemplateInput,
+): Promise<InjectTemplate> =>
+  (
+    await api.post<InjectTemplate>(`/engagements/${eid}/inject-templates`, body)
+  ).data;
+
+export const updateInjectTemplate = async (
+  eid: string,
+  id: string,
+  body: Partial<InjectTemplateInput>,
+): Promise<InjectTemplate> =>
+  (
+    await api.patch<InjectTemplate>(
+      `/engagements/${eid}/inject-templates/${id}`,
+      body,
+    )
+  ).data;
+
+export const deleteInjectTemplate = async (
+  eid: string,
+  id: string,
+): Promise<void> => {
+  await api.delete(`/engagements/${eid}/inject-templates/${id}`);
 };

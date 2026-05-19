@@ -13,7 +13,6 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getDashboard } from "../api/client";
 import { ASSET_STATE_COLOR } from "../theme";
-import { NetworkDiagram } from "./NetworkDiagram";
 
 const SEV_ORDER = ["critical", "high", "medium", "low", "informational"];
 const SEV_COLOR: Record<string, string> = {
@@ -63,7 +62,7 @@ export function DashboardTab({
 
   return (
     <Stack gap="lg">
-      <SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }}>
+      <SimpleGrid cols={{ base: 2, sm: 3, lg: 6 }}>
         <Stat label="Hosts" value={d.asset_total} />
         <Stat
           label="Compromised hosts"
@@ -77,6 +76,11 @@ export function DashboardTab({
         />
         <Stat label="Open artifacts" value={d.artifacts_open.length} color="usfGold" />
         <Stat label="Findings" value={d.findings_total} />
+        <Stat
+          label={d.overdue_injects > 0 ? `Open injects (${d.overdue_injects} overdue)` : "Open injects"}
+          value={d.open_injects}
+          color={d.overdue_injects > 0 ? "red" : undefined}
+        />
       </SimpleGrid>
 
       <Card withBorder padding="md">
@@ -93,13 +97,6 @@ export function DashboardTab({
             </Badge>
           ))}
         </Group>
-      </Card>
-
-      <Card withBorder padding="md">
-        <Title order={5} mb="xs">
-          Network map
-        </Title>
-        <NetworkDiagram eid={eid} height={420} />
       </Card>
 
       <Card withBorder padding="md">

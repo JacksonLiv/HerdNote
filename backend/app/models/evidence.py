@@ -15,6 +15,7 @@ EVIDENCE_PARENTS = (
     "step",
     "activity",
     "artifact",
+    "inject",
 )
 
 

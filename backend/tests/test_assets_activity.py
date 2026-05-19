@@ -80,6 +80,58 @@ async def test_state_transition_and_activity_autostamp(client):
     assert feed.json()[0]["description"] == "Dumped NTDS"
 
 
+async def test_untagged_hosts_show_in_every_workstream_scope(client):
+    """Hosts not yet claimed by any workstream should appear in every
+    workstream-scoped Hosts view, so nmap-imported hosts aren't invisible to
+    operators looking at, say, the Internal or External workstream."""
+    csrf, eid = await _admin_engagement(client)
+    # _admin_engagement made an AD workstream. Add a second one.
+    eng = (
+        await client.post(
+            f"/api/engagements/{eid}/workstreams",
+            headers={"X-CSRF-Token": csrf},
+            json={"name": "External", "kind": "external"},
+        )
+    ).json()
+    ws = {w["kind"]: w["id"] for w in eng["workstreams"]}
+
+    # An untagged host (no workstream_ids).
+    untagged = (
+        await client.post(
+            f"/api/engagements/{eid}/assets",
+            headers={"X-CSRF-Token": csrf},
+            json={"identifier": "stray.host"},
+        )
+    ).json()
+    assert untagged["workstream_ids"] == []
+
+    # An AD-tagged host.
+    await client.post(
+        f"/api/engagements/{eid}/assets",
+        headers={"X-CSRF-Token": csrf},
+        json={"identifier": "dc01", "workstream_ids": [ws["active_directory"]]},
+    )
+
+    # AD-scoped list sees its tagged host PLUS the untagged stray.
+    ad = (
+        await client.get(
+            f"/api/engagements/{eid}/assets",
+            params={"workstream_id": ws["active_directory"]},
+        )
+    ).json()
+    assert {x["identifier"] for x in ad} == {"dc01", "stray.host"}
+
+    # External-scoped list sees only the untagged stray (nothing is tagged
+    # to External yet).
+    ext = (
+        await client.get(
+            f"/api/engagements/{eid}/assets",
+            params={"workstream_id": ws["external"]},
+        )
+    ).json()
+    assert {x["identifier"] for x in ext} == {"stray.host"}
+
+
 async def test_invalid_state_rejected(client):
     csrf, eid = await _admin_engagement(client)
     asset = (

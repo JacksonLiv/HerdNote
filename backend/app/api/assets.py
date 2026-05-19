@@ -9,7 +9,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -96,10 +96,18 @@ async def list_assets(
         .options(selectinload(Asset.workstreams))
     )
     if workstream_id is not None:
-        # Scoped: only hosts assigned to this workstream (M2M).
-        query = query.join(
-            asset_workstreams, asset_workstreams.c.asset_id == Asset.id
-        ).where(asset_workstreams.c.workstream_id == workstream_id)
+        # Scoped view = hosts tagged to this workstream OR hosts with no tags
+        # (otherwise nmap-imported hosts that didn't match AD/Web heuristics
+        # would be invisible to operators in this workstream).
+        tagged_for_ws = select(asset_workstreams.c.asset_id).where(
+            asset_workstreams.c.workstream_id == workstream_id
+        )
+        any_tag = select(asset_workstreams.c.asset_id).where(
+            asset_workstreams.c.asset_id == Asset.id
+        )
+        query = query.where(
+            or_(Asset.id.in_(tagged_for_ws), ~any_tag.exists())
+        )
     res = await db.scalars(query.order_by(Asset.identifier))
     return [_out(a) for a in res.unique()]
 

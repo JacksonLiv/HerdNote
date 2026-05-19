@@ -68,6 +68,7 @@ function AssetRow({
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["assets", eid] });
     qc.invalidateQueries({ queryKey: ["network", eid] });
+    qc.invalidateQueries({ queryKey: ["dashboard", eid] });
   };
   const patch = useMutation({
     mutationFn: (p: Parameters<typeof updateAsset>[2]) =>
@@ -116,14 +117,21 @@ function AssetRow({
         />
       </Table.Td>
       <Table.Td>
-        <MultiSelect
-          size="xs"
-          w={210}
-          placeholder="workstreams"
-          data={wsOptions(workstreams)}
-          value={asset.workstream_ids}
-          onChange={(ids) => patch.mutate({ workstream_ids: ids })}
-        />
+        <Group gap={4} wrap="nowrap">
+          <MultiSelect
+            size="xs"
+            w={210}
+            placeholder="workstreams"
+            data={wsOptions(workstreams)}
+            value={asset.workstream_ids}
+            onChange={(ids) => patch.mutate({ workstream_ids: ids })}
+          />
+          {ctx.workstreamId && asset.workstream_ids.length === 0 ? (
+            <Badge size="xs" variant="light" color="gray" title="No workstream claimed this host">
+              untagged
+            </Badge>
+          ) : null}
+        </Group>
       </Table.Td>
       <Table.Td>
         <Switch
@@ -194,6 +202,7 @@ function AddHosts({ ctx }: { ctx: Ctx }) {
       setPickWs([]);
       qc.invalidateQueries({ queryKey: ["assets", eid] });
       qc.invalidateQueries({ queryKey: ["network", eid] });
+      qc.invalidateQueries({ queryKey: ["dashboard", eid] });
       notifications.show({
         color: "usfGreen",
         message: `Added ${created.length} host(s).`,
@@ -257,6 +266,7 @@ function NmapImport({ ctx }: { ctx: Ctx }) {
       qc.invalidateQueries({ queryKey: ["assets", eid] });
       qc.invalidateQueries({ queryKey: ["network", eid] });
       qc.invalidateQueries({ queryKey: ["engagement", eid] });
+      qc.invalidateQueries({ queryKey: ["dashboard", eid] });
       notifications.show({
         color: "usfGreen",
         title: "Nmap imported",

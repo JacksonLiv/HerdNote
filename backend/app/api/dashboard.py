@@ -1,6 +1,7 @@
 import re
 import uuid
 from collections import Counter
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -12,6 +13,7 @@ from app.core.deps import require_engagement
 from app.models.asset import Asset, asset_workstreams
 from app.models.compromise import Artifact, CompromisedUser
 from app.models.finding import FindingDraft
+from app.models.inject import Inject
 from app.models.workstream import Workstream
 
 _IPV4 = re.compile(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.\d{1,3}")
@@ -64,9 +66,29 @@ async def dashboard(
             select(Workstream).where(Workstream.engagement_id == engagement_id)
         )
     )
+    injects = list(
+        await db.scalars(
+            select(Inject).where(Inject.engagement_id == engagement_id)
+        )
+    )
 
     state_counts = Counter(a.state for a in assets)
     sev_counts = Counter(f.severity for f in findings)
+    now = datetime.now(UTC)
+
+    def _aware(dt: datetime) -> datetime:
+        # SQLite hands back naive datetimes; treat them as UTC.
+        return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
+
+    open_injects = [i for i in injects if i.status in ("open", "in_progress")]
+    overdue_injects = [
+        i
+        for i in injects
+        if i.deadline and _aware(i.deadline) < now and i.status != "closed"
+    ]
+    first_inject_ws = next(
+        (w.id for w in workstreams if w.kind == "inject"), None
+    )
 
     def ws_ids(a: Asset) -> list[str]:
         return [str(w.id) for w in a.workstreams]
@@ -119,6 +141,11 @@ async def dashboard(
         "findings_by_severity": dict(sev_counts),
         "findings_open": sum(
             1 for f in findings if f.status in ("open", "draft")
+        ),
+        "open_injects": len(open_injects),
+        "overdue_injects": len(overdue_injects),
+        "first_inject_workstream_id": (
+            str(first_inject_ws) if first_inject_ws is not None else None
         ),
         "workstreams": [
             {

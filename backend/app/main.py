@@ -18,6 +18,8 @@ from app.api import (
     finding,
     health,
     infra,
+    inject,
+    playbook,
     web,
     ws,
 )
@@ -78,6 +80,9 @@ app.include_router(web.domains_router, prefix="/api")
 app.include_router(web.webapps_router, prefix="/api")
 app.include_router(infra.infra_router, prefix="/api")
 app.include_router(infra.oplog_router, prefix="/api")
+app.include_router(playbook.router, prefix="/api")
+app.include_router(inject.injects_router, prefix="/api")
+app.include_router(inject.templates_router, prefix="/api")
 app.include_router(export.router, prefix="/api")
 
 # WebSocket (no /api prefix; nginx proxies /ws/).

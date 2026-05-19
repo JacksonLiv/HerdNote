@@ -15,6 +15,7 @@ WORKSTREAM_KINDS = (
     "cloud",
     "social",
     "physical",
+    "inject",
     "other",
 )
 

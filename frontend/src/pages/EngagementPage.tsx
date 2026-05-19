@@ -11,18 +11,27 @@ import {
 } from "@mantine/core";
 import { IconDownload, IconSettings } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { exportEngagement, getEngagement } from "../api/client";
+import { exportEngagement, getEngagement, type Workstream } from "../api/client";
 import { AccessTab } from "../components/AccessTab";
 import { AssetsTab } from "../components/AssetsTab";
 import { DashboardTab } from "../components/DashboardTab";
 import { FindingsTab } from "../components/FindingsTab";
+import { InboxTab } from "../components/InboxTab";
+import { LibraryTab } from "../components/LibraryTab";
 import { NotesTab } from "../components/NotesTab";
+import { PlaybookTab } from "../components/PlaybookTab";
 import { useEngagementSync } from "../hooks/useEngagementSync";
+import {
+  KIND_TABS,
+  TAB_LABEL,
+  type WorkstreamTabKey,
+} from "../lib/workstreamTabs";
 
 const ALL = "__all__";
+const ALL_TABS: WorkstreamTabKey[] = ["hosts", "findings", "access", "notes"];
 
 export function EngagementPage() {
   const { id = "" } = useParams();
@@ -39,8 +48,9 @@ export function EngagementPage() {
   if (q.isError || !q.data) return <Text c="red">Engagement not found.</Text>;
   const e = q.data;
   const wsId = ws === ALL ? undefined : ws;
-  const wsName =
-    e.workstreams.find((w) => w.id === ws)?.name ?? "All workstreams";
+  const activeWs = e.workstreams.find((w) => w.id === ws);
+  const wsName = activeWs?.name ?? "All workstreams";
+  const tabKeys = activeWs ? KIND_TABS[activeWs.kind] ?? [] : ALL_TABS;
 
   return (
     <Stack gap="lg">
@@ -89,7 +99,7 @@ export function EngagementPage() {
         </Text>
         <SegmentedControl
           value={ws}
-          onChange={setWs}
+          onChange={(v) => setWs(v)}
           color="usfGreen"
           data={[
             { label: "All", value: ALL },
@@ -98,57 +108,116 @@ export function EngagementPage() {
         />
         <Text size="xs" c="dimmed">
           {wsId
-            ? `Hosts / Findings / Access / Notes are scoped to ${wsName}. Dashboard stays global.`
+            ? `Workstream tabs scoped to ${wsName} (${activeWs?.kind}). Dashboard stays global.`
             : "Showing everything across all workstreams."}
         </Text>
       </Group>
 
-      <Tabs defaultValue="dashboard" color="usfGreen" keepMounted={false}>
-        <Tabs.List>
-          <Tabs.Tab value="dashboard">Dashboard</Tabs.Tab>
-          <Tabs.Tab value="hosts">Hosts</Tabs.Tab>
-          <Tabs.Tab value="findings">Findings</Tabs.Tab>
-          <Tabs.Tab value="access">Access</Tabs.Tab>
-          <Tabs.Tab value="notes">Notes</Tabs.Tab>
-        </Tabs.List>
-
-        {/* Dashboard is always global (every workstream). */}
-        <Tabs.Panel value="dashboard" pt="md">
-          <DashboardTab eid={e.id} />
-        </Tabs.Panel>
-
-        <Tabs.Panel value="hosts" pt="md">
-          <AssetsTab
-            eid={e.id}
-            workstreams={e.workstreams}
-            workstreamId={wsId}
-          />
-        </Tabs.Panel>
-
-        <Tabs.Panel value="findings" pt="md">
-          <FindingsTab
-            eid={e.id}
-            workstreams={e.workstreams}
-            workstreamId={wsId}
-          />
-        </Tabs.Panel>
-
-        <Tabs.Panel value="access" pt="md">
-          <AccessTab
-            eid={e.id}
-            workstreams={e.workstreams}
-            workstreamId={wsId}
-          />
-        </Tabs.Panel>
-
-        <Tabs.Panel value="notes" pt="md">
-          <NotesTab
-            eid={e.id}
-            workstreams={e.workstreams}
-            workstreamId={wsId}
-          />
-        </Tabs.Panel>
-      </Tabs>
+      <EngagementTabs
+        engagementId={e.id}
+        workstreams={e.workstreams}
+        activeWs={activeWs ?? null}
+        wsId={wsId}
+        tabKeys={tabKeys}
+      />
     </Stack>
   );
 }
+
+function EngagementTabs({
+  engagementId,
+  workstreams,
+  activeWs,
+  wsId,
+  tabKeys,
+}: {
+  engagementId: string;
+  workstreams: Workstream[];
+  activeWs: Workstream | null;
+  wsId: string | undefined;
+  tabKeys: WorkstreamTabKey[];
+}) {
+  // Controlled: when the workstream (and therefore the available tab set)
+  // changes, snap back to Dashboard so we never land on a tab that just got
+  // hidden (e.g. Hosts when switching into the Inject workstream).
+  const [tab, setTab] = useState<string>("dashboard");
+  useEffect(() => {
+    setTab("dashboard");
+  }, [activeWs?.id]);
+  const value = tab === "dashboard" || tabKeys.includes(tab as WorkstreamTabKey) ? tab : "dashboard";
+  return (
+    <Tabs value={value} onChange={(v) => v && setTab(v)} color="usfGreen" keepMounted={false}>
+      <Tabs.List>
+        <Tabs.Tab value="dashboard">Dashboard</Tabs.Tab>
+        {tabKeys.map((k) => (
+          <Tabs.Tab key={k} value={k}>
+            {TAB_LABEL[k]}
+          </Tabs.Tab>
+        ))}
+      </Tabs.List>
+
+      <Tabs.Panel value="dashboard" pt="md">
+        <DashboardTab eid={engagementId} />
+      </Tabs.Panel>
+
+      {tabKeys.includes("playbook") && activeWs && (
+        <Tabs.Panel value="playbook" pt="md">
+          <PlaybookTab eid={engagementId} workstream={activeWs} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("hosts") && (
+        <Tabs.Panel value="hosts" pt="md">
+          <AssetsTab
+            eid={engagementId}
+            workstreams={workstreams}
+            workstreamId={wsId}
+          />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("findings") && (
+        <Tabs.Panel value="findings" pt="md">
+          <FindingsTab
+            eid={engagementId}
+            workstreams={workstreams}
+            workstreamId={wsId}
+          />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("access") && (
+        <Tabs.Panel value="access" pt="md">
+          <AccessTab
+            eid={engagementId}
+            workstreams={workstreams}
+            workstreamId={wsId}
+          />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("notes") && (
+        <Tabs.Panel value="notes" pt="md">
+          <NotesTab
+            eid={engagementId}
+            workstreams={workstreams}
+            workstreamId={wsId}
+          />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("inbox") && activeWs && (
+        <Tabs.Panel value="inbox" pt="md">
+          <InboxTab eid={engagementId} workstreamId={activeWs.id} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("library") && (
+        <Tabs.Panel value="library" pt="md">
+          <LibraryTab eid={engagementId} />
+        </Tabs.Panel>
+      )}
+    </Tabs>
+  );
+}
+

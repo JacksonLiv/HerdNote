@@ -30,6 +30,7 @@ const KINDS = [
   "cloud",
   "social",
   "physical",
+  "inject",
   "other",
 ];
 
