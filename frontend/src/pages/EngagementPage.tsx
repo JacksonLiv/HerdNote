@@ -3,18 +3,26 @@ import {
   Button,
   Group,
   Loader,
+  Menu,
   SegmentedControl,
   Stack,
   Tabs,
   Text,
   Title,
 } from "@mantine/core";
-import { IconDownload, IconSettings } from "@tabler/icons-react";
+import { useDisclosure } from "@mantine/hooks";
+import {
+  IconChevronDown,
+  IconCloudUpload,
+  IconFileCode,
+  IconSettings,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { exportEngagement, getEngagement, type Workstream } from "../api/client";
+import { GhostwriterExportModal } from "../components/GhostwriterExportModal";
 import { AccessPointsTab } from "../components/AccessPointsTab";
 import { AccessTab } from "../components/AccessTab";
 import { ADDomainTab } from "../components/ADDomainTab";
@@ -57,6 +65,7 @@ export function EngagementPage() {
   const navigate = useNavigate();
   useEngagementSync(id);
   const [ws, setWs] = useState<string>(ALL);
+  const [gwModalOpen, { open: openGw, close: closeGw }] = useDisclosure(false);
   const q = useQuery({
     queryKey: ["engagement", id],
     queryFn: () => getEngagement(id),
@@ -70,6 +79,16 @@ export function EngagementPage() {
   const activeWs = e.workstreams.find((w) => w.id === ws);
   const wsName = activeWs?.name ?? "All workstreams";
   const tabKeys = activeWs ? KIND_TABS[activeWs.kind] ?? [] : ALL_TABS;
+
+  const handleJsonDownload = async () => {
+    const data = await exportEngagement(e.id);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${e.name.replace(/\s+/g, "_")}_export.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
 
   return (
     <Stack gap="lg">
@@ -91,23 +110,38 @@ export function EngagementPage() {
           >
             Settings
           </Button>
-          <Button
-            variant="default"
-            leftSection={<IconDownload size={16} />}
-            onClick={async () => {
-              const data = await exportEngagement(e.id);
-              const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-              const a = document.createElement("a");
-              a.href = URL.createObjectURL(blob);
-              a.download = `${e.name.replace(/\s+/g, "_")}_export.json`;
-              a.click();
-              URL.revokeObjectURL(a.href);
-            }}
-          >
-            Export JSON
-          </Button>
+          <Menu position="bottom-end" withinPortal>
+            <Menu.Target>
+              <Button
+                variant="default"
+                rightSection={<IconChevronDown size={14} />}
+              >
+                Export
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item
+                leftSection={<IconFileCode size={14} />}
+                onClick={handleJsonDownload}
+              >
+                Download JSON
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconCloudUpload size={14} />}
+                onClick={openGw}
+              >
+                Export to Ghostwriter
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
         </Group>
       </Group>
+
+      <GhostwriterExportModal
+        opened={gwModalOpen}
+        onClose={closeGw}
+        engagement={e}
+      />
 
       <Group gap="sm" align="center">
         <Text size="sm" fw={600} c="dimmed">View:</Text>

@@ -16,6 +16,7 @@ from app.api import (
     evidence,
     export,
     finding,
+    ghostwriter,
     health,
     infra,
     inject,
@@ -91,6 +92,7 @@ app.include_router(inject.injects_router, prefix="/api")
 app.include_router(inject.templates_router, prefix="/api")
 app.include_router(inject.msel_router, prefix="/api")
 app.include_router(export.router, prefix="/api")
+app.include_router(ghostwriter.router, prefix="/api")
 
 # WebSocket (no /api prefix; nginx proxies /ws/).
 app.include_router(ws.router)

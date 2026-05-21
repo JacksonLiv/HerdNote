@@ -1531,3 +1531,42 @@ export const updateMSELEntry = async (eid: string, id: string, patch: Partial<{
 export const deleteMSELEntry = async (eid: string, id: string): Promise<void> => {
   await api.delete(`/engagements/${eid}/msel/${id}`);
 };
+
+// ---- Ghostwriter integration ----
+export interface GhostwriterConfig {
+  url: string | null;
+  enabled: boolean;
+  token_set: boolean;
+}
+
+export interface GhostwriterExportResult {
+  pushed: number;
+  updated: number;
+  errors: string[];
+}
+
+export const getGhostwriterConfig = async (): Promise<GhostwriterConfig> =>
+  (await api.get<GhostwriterConfig>("/admin/ghostwriter")).data;
+
+export const updateGhostwriterConfig = async (data: {
+  url: string;
+  api_token: string;
+  enabled: boolean;
+}): Promise<GhostwriterConfig> =>
+  (await api.put<GhostwriterConfig>("/admin/ghostwriter", data)).data;
+
+export const testGhostwriterConnection = async (): Promise<{
+  ok: boolean;
+  message: string;
+}> => (await api.post("/admin/ghostwriter/test")).data;
+
+export const exportToGhostwriter = async (
+  eid: string,
+  statuses: string[],
+): Promise<GhostwriterExportResult> =>
+  (
+    await api.post<GhostwriterExportResult>(
+      `/engagements/${eid}/export/ghostwriter`,
+      { statuses },
+    )
+  ).data;

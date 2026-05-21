@@ -24,3 +24,12 @@ data/
 .DS_Store
 .idea/
 .vscode/
+
+# Claude / AI assistant files — do not commit
+.claude/
+CLAUDE.md
+claude.md
+*.claude
+
+# Report PDFs and competition-sensitive documents
+*.pdf
