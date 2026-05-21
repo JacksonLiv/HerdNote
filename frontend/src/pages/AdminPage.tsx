@@ -47,26 +47,31 @@ function GhostwriterSettingsPanel() {
     queryFn: getGhostwriterConfig,
   });
 
+  const [editing, setEditing] = useState(false);
   const [url, setUrl] = useState("");
   const [token, setToken] = useState("");
+  const [hasuraSecret, setHasuraSecret] = useState("");
   const [enabled, setEnabled] = useState(false);
 
-  // Sync form when data loads
   const loaded = q.data;
-  const [synced, setSynced] = useState(false);
-  if (loaded && !synced) {
-    setUrl(loaded.url ?? "");
-    setEnabled(loaded.enabled);
-    setSynced(true);
-  }
+  const isConfigured = !!(loaded?.url && loaded.token_set);
+
+  const startEdit = () => {
+    setUrl(loaded?.url ?? "");
+    setToken("");
+    setHasuraSecret("");
+    setEnabled(loaded?.enabled ?? false);
+    setEditing(true);
+  };
 
   const save = useMutation({
     mutationFn: () =>
-      updateGhostwriterConfig({ url: url.trim(), api_token: token, enabled }),
+      updateGhostwriterConfig({ url: url.trim(), api_token: token, hasura_admin_secret: hasuraSecret, enabled }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["ghostwriter-config"] });
       setToken("");
-      setSynced(false);
+      setHasuraSecret("");
+      setEditing(false);
       notifications.show({ color: "usfGreen", message: "Ghostwriter settings saved." });
     },
     onError: () =>
@@ -89,8 +94,46 @@ function GhostwriterSettingsPanel() {
 
   if (q.isLoading) return <Loader size="sm" />;
 
-  const canSave = url.trim().length > 0 && token.length > 0;
-  const canTest = !!(loaded?.url && loaded.token_set);
+  // Saved state view
+  if (isConfigured && !editing) {
+    return (
+      <Stack gap="md">
+        <Group justify="space-between" align="flex-start">
+          <div>
+            <Text fw={600}>Ghostwriter</Text>
+            <Text size="sm" c="dimmed" mt={2}>{loaded.url}</Text>
+          </div>
+          <Group gap="xs">
+            {loaded.hasura_secret_set && (
+              <Badge color="blue" variant="light">Hasura secret set</Badge>
+            )}
+            <Badge
+              color={loaded.enabled ? "usfGreen" : "yellow"}
+              variant="light"
+            >
+              {loaded.enabled ? "Enabled" : "Disabled"}
+            </Badge>
+          </Group>
+        </Group>
+        <Group>
+          <Button variant="default" size="sm" onClick={startEdit}>
+            Edit
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            loading={test.isPending}
+            onClick={() => test.mutate()}
+          >
+            Test Connection
+          </Button>
+        </Group>
+      </Stack>
+    );
+  }
+
+  // Edit / first-time setup form
+  const canSave = url.trim().length > 0 && (token.length > 0 || isConfigured);
 
   return (
     <Stack gap="md" maw={520}>
@@ -98,33 +141,33 @@ function GhostwriterSettingsPanel() {
         <Text fw={600}>Ghostwriter</Text>
         <Text size="sm" c="dimmed">
           Push findings to a Ghostwriter instance for report generation.
-          The client and project are created automatically if they don't exist.
+          Include the port in the URL, e.g. <Text span ff="monospace" size="sm">https://ghostwriter.example.com:8000</Text>
         </Text>
       </div>
 
-      {loaded?.token_set && (
-        <Text size="xs" c="dimmed">
-          A token is already saved.{" "}
-          {loaded.enabled ? (
-            <Text span c="usfGreen" size="xs">Integration is enabled.</Text>
-          ) : (
-            <Text span c="yellow" size="xs">Integration is disabled.</Text>
-          )}
-        </Text>
-      )}
-
       <TextInput
         label="Ghostwriter URL"
-        placeholder="http://ghostwriter:8000"
+        placeholder="https://ghostwriter.example.com:8000"
         value={url}
         onChange={(e) => setUrl(e.currentTarget.value)}
       />
       <PasswordInput
         label="API Token"
-        description={loaded?.token_set ? "Leave blank to keep the existing token." : undefined}
-        placeholder="Bearer token from Ghostwriter"
+        description={isConfigured ? "Leave blank to keep the existing token." : undefined}
+        placeholder="API token from Ghostwriter (Profile → API Tokens)"
         value={token}
         onChange={(e) => setToken(e.currentTarget.value)}
+      />
+      <PasswordInput
+        label="Hasura Admin Secret"
+        description={
+          loaded?.hasura_secret_set
+            ? "Leave blank to keep the existing secret. When set, this is used instead of the API token for GraphQL."
+            : "Found in your Ghostwriter server's .env file as HASURA_GRAPHQL_ADMIN_SECRET. Required if your API token has no GraphQL permissions."
+        }
+        placeholder="HASURA_GRAPHQL_ADMIN_SECRET value"
+        value={hasuraSecret}
+        onChange={(e) => setHasuraSecret(e.currentTarget.value)}
       />
       <Switch
         label="Enable Ghostwriter integration"
@@ -144,14 +187,11 @@ function GhostwriterSettingsPanel() {
         >
           Save
         </Button>
-        <Button
-          variant="default"
-          disabled={!canTest}
-          loading={test.isPending}
-          onClick={() => test.mutate()}
-        >
-          Test Connection
-        </Button>
+        {isConfigured && (
+          <Button variant="default" onClick={() => setEditing(false)}>
+            Cancel
+          </Button>
+        )}
       </Group>
     </Stack>
   );

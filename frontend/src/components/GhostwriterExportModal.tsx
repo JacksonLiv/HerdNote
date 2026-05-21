@@ -6,6 +6,7 @@ import {
   Group,
   Loader,
   Modal,
+  Select,
   Stack,
   Text,
 } from "@mantine/core";
@@ -17,8 +18,10 @@ import { useState } from "react";
 import {
   exportToGhostwriter,
   listFindings,
+  listGhostwriterProjects,
   type Engagement,
   type Finding,
+  type GhostwriterProject,
 } from "../api/client";
 import { SEVERITY_COLOR } from "../theme";
 
@@ -67,6 +70,8 @@ export function GhostwriterExportModal({ opened, onClose, engagement }: Props) {
     "open",
     "accepted",
   ]);
+  const [useExisting, setUseExisting] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [result, setResult] = useState<{
     pushed: number;
     updated: number;
@@ -79,12 +84,28 @@ export function GhostwriterExportModal({ opened, onClose, engagement }: Props) {
     enabled: opened,
   });
 
+  const projectsQ = useQuery({
+    queryKey: ["gw-projects", engagement.id],
+    queryFn: () => listGhostwriterProjects(engagement.id),
+    enabled: opened && useExisting,
+  });
+
   const selectedFindings = (findingsQ.data ?? []).filter((f) =>
     selectedStatuses.includes(f.status as FindingStatus),
   );
 
+  const selectedProject: GhostwriterProject | undefined = projectsQ.data?.find(
+    (p) => String(p.project_id) === selectedProjectId,
+  );
+
   const push = useMutation({
-    mutationFn: () => exportToGhostwriter(engagement.id, selectedStatuses),
+    mutationFn: () => {
+      const gwReportId =
+        useExisting && selectedProject?.report_id != null
+          ? selectedProject.report_id
+          : undefined;
+      return exportToGhostwriter(engagement.id, selectedStatuses, gwReportId);
+    },
     onSuccess: (data) => {
       setResult(data);
       if (data.errors.length === 0) {
@@ -111,8 +132,19 @@ export function GhostwriterExportModal({ opened, onClose, engagement }: Props) {
 
   const handleClose = () => {
     setResult(null);
+    setUseExisting(false);
+    setSelectedProjectId(null);
     onClose();
   };
+
+  const projectOptions = (projectsQ.data ?? []).map((p) => ({
+    value: String(p.project_id),
+    label: `${p.client_name} / ${p.project_name}`,
+  }));
+
+  const canPush =
+    selectedFindings.length > 0 &&
+    (!useExisting || selectedProjectId !== null);
 
   return (
     <Modal
@@ -123,17 +155,48 @@ export function GhostwriterExportModal({ opened, onClose, engagement }: Props) {
       size="md"
     >
       <Stack gap="md">
-        <div>
-          <Text size="sm" c="dimmed">
-            Findings will be pushed to Ghostwriter for{" "}
-            <Text span fw={600} c="white">
-              {engagement.client ?? engagement.name}
+        <Divider label="Destination" labelPosition="left" />
+
+        <Stack gap="xs">
+          <Checkbox
+            label="Use an existing Ghostwriter project"
+            checked={useExisting}
+            onChange={(e) => {
+              setUseExisting(e.currentTarget.checked);
+              setSelectedProjectId(null);
+              setResult(null);
+            }}
+            color="usfGreen"
+          />
+
+          {useExisting ? (
+            projectsQ.isLoading ? (
+              <Loader size="sm" />
+            ) : (
+              <Select
+                placeholder="Select a project…"
+                data={projectOptions}
+                value={selectedProjectId}
+                onChange={(v) => { setSelectedProjectId(v); setResult(null); }}
+                searchable
+                nothingFoundMessage="No projects found"
+              />
+            )
+          ) : (
+            <Text size="xs" c="dimmed">
+              Client, project, and report will be created automatically in
+              Ghostwriter if they don't exist, matched by name.
             </Text>
-            . The client, project, and report will be created automatically if
-            they don't already exist. Findings are matched by title — existing
-            ones will be updated.
-          </Text>
-        </div>
+          )}
+
+          {useExisting && selectedProject && (
+            <Text size="xs" c="dimmed">
+              {selectedProject.report_id
+                ? `Findings will be pushed to report "${selectedProject.report_title ?? "Untitled"}".`
+                : "No report found for this project — one will be created automatically."}
+            </Text>
+          )}
+        </Stack>
 
         <Divider label="Include findings with status" labelPosition="left" />
 
@@ -196,7 +259,7 @@ export function GhostwriterExportModal({ opened, onClose, engagement }: Props) {
             <Button
               color="usfGreen"
               loading={push.isPending}
-              disabled={selectedFindings.length === 0}
+              disabled={!canPush}
               onClick={() => push.mutate()}
             >
               Push to Ghostwriter

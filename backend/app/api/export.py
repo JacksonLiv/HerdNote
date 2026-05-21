@@ -1,3 +1,4 @@
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,8 +11,8 @@ from app.models.engagement import Engagement
 from app.models.finding import FindingDraft
 from app.models.ghostwriter import GhostwriterSettings
 from app.models.user import User
-from app.schemas.ghostwriter import GhostwriterExportRequest, GhostwriterExportResult
-from app.services.ghostwriter import export_engagement_to_ghostwriter
+from app.schemas.ghostwriter import GhostwriterExportRequest, GhostwriterExportResult, GhostwriterProject
+from app.services.ghostwriter import export_engagement_to_ghostwriter, list_projects
 
 router = APIRouter(
     prefix="/engagements/{engagement_id}/export",
@@ -76,4 +77,39 @@ async def export_to_ghostwriter(
             errors=["No findings matched the selected statuses."],
         )
 
-    return await export_engagement_to_ghostwriter(config, eng, filtered)
+    return await export_engagement_to_ghostwriter(config, eng, filtered, gw_report_id=body.gw_report_id)
+
+
+@router.get(
+    "/ghostwriter/projects",
+    response_model=list[GhostwriterProject],
+)
+async def list_ghostwriter_projects(
+    _eng: Engagement = Depends(require_engagement),
+    _user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[GhostwriterProject]:
+    """Return all projects (with their first report) from the configured Ghostwriter instance."""
+    config = await db.scalar(
+        select(GhostwriterSettings).where(GhostwriterSettings.id == 1)
+    )
+    if not config or not config.enabled or not config.url or not config.api_token:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Ghostwriter integration is not configured or not enabled.",
+        )
+    try:
+        gw_headers = (
+            {"x-hasura-admin-secret": config.hasura_admin_secret}
+            if config.hasura_admin_secret
+            else {"Authorization": f"Bearer {config.api_token}"}
+        )
+        async with httpx.AsyncClient(
+            base_url=config.url,
+            headers=gw_headers,
+            timeout=15.0,
+            verify=False,
+        ) as gw:
+            return await list_projects(gw)
+    except Exception as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc

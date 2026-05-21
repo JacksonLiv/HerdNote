@@ -30,6 +30,7 @@ async def get_ghostwriter_config(db: AsyncSession = Depends(get_db)) -> dict:
         "url": row.url if row else None,
         "enabled": row.enabled if row else False,
         "token_set": bool(row and row.api_token),
+        "hasura_secret_set": bool(row and row.hasura_admin_secret),
     }
 
 
@@ -47,7 +48,10 @@ async def update_ghostwriter_config(
         row = GhostwriterSettings(id=1)
         db.add(row)
     row.url = body.url.rstrip("/")
-    row.api_token = body.api_token
+    if body.api_token:
+        row.api_token = body.api_token
+    if body.hasura_admin_secret:
+        row.hasura_admin_secret = body.hasura_admin_secret
     row.enabled = body.enabled
     await db.commit()
     await db.refresh(row)
@@ -55,6 +59,7 @@ async def update_ghostwriter_config(
         "url": row.url,
         "enabled": row.enabled,
         "token_set": bool(row.api_token),
+        "hasura_secret_set": bool(row.hasura_admin_secret),
     }
 
 
@@ -69,14 +74,20 @@ async def test_ghostwriter_connection(
             "Ghostwriter URL and API token must be saved first.",
         )
     try:
+        headers = (
+            {"x-hasura-admin-secret": row.hasura_admin_secret}
+            if row.hasura_admin_secret
+            else {"Authorization": f"Bearer {row.api_token}"}
+        )
         async with httpx.AsyncClient(
             base_url=row.url,
-            headers={"Authorization": f"Bearer {row.api_token}"},
+            headers=headers,
             timeout=10.0,
+            verify=False,
         ) as gw:
             resp = await gw.post(
-                "/api/graphql",
-                json={"query": "query { severity(limit: 1) { id } }"},
+                "/v1/graphql",
+                json={"query": "query { findingSeverity(limit: 1) { id severity } }"},
             )
             resp.raise_for_status()
             data = resp.json()

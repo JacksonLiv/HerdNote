@@ -14,6 +14,7 @@ class GhostwriterSettings(Base):
     id: Mapped[int] = mapped_column(primary_key=True, default=1)
     url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     api_token: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    hasura_admin_secret: Mapped[str | None] = mapped_column(String(512), nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

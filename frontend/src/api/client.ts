@@ -1537,6 +1537,7 @@ export interface GhostwriterConfig {
   url: string | null;
   enabled: boolean;
   token_set: boolean;
+  hasura_secret_set: boolean;
 }
 
 export interface GhostwriterExportResult {
@@ -1551,6 +1552,7 @@ export const getGhostwriterConfig = async (): Promise<GhostwriterConfig> =>
 export const updateGhostwriterConfig = async (data: {
   url: string;
   api_token: string;
+  hasura_admin_secret?: string;
   enabled: boolean;
 }): Promise<GhostwriterConfig> =>
   (await api.put<GhostwriterConfig>("/admin/ghostwriter", data)).data;
@@ -1560,13 +1562,27 @@ export const testGhostwriterConnection = async (): Promise<{
   message: string;
 }> => (await api.post("/admin/ghostwriter/test")).data;
 
+export interface GhostwriterProject {
+  project_id: number;
+  project_name: string;
+  client_name: string;
+  report_id: number | null;
+  report_title: string | null;
+}
+
+export const listGhostwriterProjects = async (
+  eid: string,
+): Promise<GhostwriterProject[]> =>
+  (await api.get<GhostwriterProject[]>(`/engagements/${eid}/export/ghostwriter/projects`)).data;
+
 export const exportToGhostwriter = async (
   eid: string,
   statuses: string[],
+  gwReportId?: number,
 ): Promise<GhostwriterExportResult> =>
   (
     await api.post<GhostwriterExportResult>(
       `/engagements/${eid}/export/ghostwriter`,
-      { statuses },
+      { statuses, gw_report_id: gwReportId ?? null },
     )
   ).data;

@@ -1,10 +1,21 @@
-"""Ghostwriter v3 GraphQL integration service.
+"""Ghostwriter v6 GraphQL integration service.
 
-Pushes HerdNote findings into a Ghostwriter report. Client/project/report are
-created if they don't already exist; findings are matched by title so repeated
-exports update rather than duplicate.
+Pushes HerdNote findings into a Ghostwriter report. Uses the Hasura GraphQL
+endpoint exposed by Ghostwriter with either a Bearer JWT (from Profile → API
+Tokens) or an x-hasura-admin-secret header.
 
-Ghostwriter exposes Hasura at {url}/api/graphql with Bearer token auth.
+In Ghostwriter v6, table names have custom aliases:
+  reporting_severity       → findingSeverity
+  reporting_report         → report
+  reporting_reporttemplate → template
+  reporting_reportfindinglink → reportedFinding
+  rolodex_client           → client
+  rolodex_project          → project
+  rolodex_projecttype      → projectType
+
+Insert/update field names are camelCase (Hasura column_config renames).
+Client and project creation are not available via GraphQL in v6 — users must
+select an existing project from the export modal.
 """
 
 from __future__ import annotations
@@ -12,18 +23,29 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import httpx
+import markdown as _md
 
-from app.schemas.ghostwriter import GhostwriterExportResult
+from app.schemas.ghostwriter import GhostwriterExportResult, GhostwriterProject
+
+_MD = _md.Markdown(extensions=["nl2br", "fenced_code", "tables"])
+
+
+def _md_to_html(text: str | None) -> str | None:
+    """Convert Markdown to HTML for Ghostwriter's rich-text fields.
+
+    Ghostwriter's DOCX generator requires content wrapped in block elements
+    (<p>, <ul>, etc.). Raw text causes a ReportExportError at generation time.
+    """
+    if not text:
+        return None
+    _MD.reset()
+    return _MD.convert(text)
 
 if TYPE_CHECKING:
     from app.models.engagement import Engagement
     from app.models.finding import FindingDraft
     from app.models.ghostwriter import GhostwriterSettings
 
-# ---------------------------------------------------------------------------
-# Severity mapping — HerdNote string → Ghostwriter severity display name
-# (matched case-insensitively against GW's severity list)
-# ---------------------------------------------------------------------------
 _SEVERITY_DISPLAY: dict[str, str] = {
     "critical": "Critical",
     "high": "High",
@@ -31,6 +53,16 @@ _SEVERITY_DISPLAY: dict[str, str] = {
     "low": "Low",
     "informational": "Informational",
 }
+
+
+# ---------------------------------------------------------------------------
+# Auth headers
+# ---------------------------------------------------------------------------
+
+def _gw_headers(settings: "GhostwriterSettings") -> dict:
+    if settings.hasura_admin_secret:
+        return {"x-hasura-admin-secret": settings.hasura_admin_secret}
+    return {"Authorization": f"Bearer {settings.api_token}"}
 
 
 # ---------------------------------------------------------------------------
@@ -43,7 +75,7 @@ async def _gql(
     variables: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     resp = await client.post(
-        "/api/graphql",
+        "/v1/graphql",
         json={"query": query, "variables": variables or {}},
     )
     resp.raise_for_status()
@@ -55,16 +87,108 @@ async def _gql(
 
 
 # ---------------------------------------------------------------------------
-# Severity
+# Project listing (for the "use existing project" modal picker)
 # ---------------------------------------------------------------------------
 
+async def list_projects(client: httpx.AsyncClient) -> list[GhostwriterProject]:
+    data = await _gql(
+        client,
+        """
+        query ListProjects {
+          project(order_by: [{client: {name: asc}}, {startDate: desc}]) {
+            id
+            codename
+            startDate
+            endDate
+            client { name }
+            reports(limit: 1, order_by: {id: asc}) { id title }
+          }
+        }
+        """,
+    )
+    results: list[GhostwriterProject] = []
+    for row in data.get("project", []):
+        reports = row.get("reports", [])
+        first = reports[0] if reports else None
+        start = (row.get("startDate") or "")[:10]
+        end = (row.get("endDate") or "")[:10]
+        date_range = f"{start} – {end}" if start else ""
+        codename = row.get("codename") or f"Project {row['id']}"
+        project_name = f"{codename} ({date_range})" if date_range else codename
+        results.append(
+            GhostwriterProject(
+                project_id=row["id"],
+                project_name=project_name,
+                client_name=row["client"]["name"],
+                report_id=first["id"] if first else None,
+                report_title=first["title"] if first else None,
+            )
+        )
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Severity map + finding type map
+# ---------------------------------------------------------------------------
+
+# Maps HerdNote finding_type values to Ghostwriter finding type labels (case-insensitive prefix match)
+_FINDING_TYPE_HINTS: dict[str, list[str]] = {
+    "network": ["network"],
+    "web": ["web"],
+    "webapp": ["web"],
+    "web_app": ["web"],
+    "mobile": ["mobile"],
+    "physical": ["physical"],
+    "cloud": ["cloud"],
+    "active_directory": ["network"],
+    "ad": ["network"],
+    "wireless": ["network"],
+    "social_engineering": ["physical"],
+}
+
+
+async def get_finding_type_map(client: httpx.AsyncClient) -> dict[str, int]:
+    """Returns {label_lower: id} for all Ghostwriter finding types."""
+    data = await _gql(
+        client,
+        """
+        query GetFindingTypes {
+          findingType(order_by: {id: asc}) {
+            id
+            findingType
+          }
+        }
+        """,
+    )
+    mapping: dict[str, int] = {}
+    for row in data.get("findingType", []):
+        label = (row.get("findingType") or "").lower()
+        mapping[label] = row["id"]
+    return mapping
+
+
+def _resolve_finding_type_id(
+    herdnote_type: str | None,
+    finding_type_map: dict[str, int],
+    default_id: int,
+) -> int:
+    if not herdnote_type or not finding_type_map:
+        return default_id
+    key = herdnote_type.lower()
+    hints = _FINDING_TYPE_HINTS.get(key, [key])
+    for hint in hints:
+        for label, fid in finding_type_map.items():
+            if hint in label:
+                return fid
+    return default_id
+
+
 async def get_severity_map(client: httpx.AsyncClient) -> dict[str, int]:
-    """Return a mapping like {"critical": 4, "high": 3, ...} using GW severity IDs."""
     data = await _gql(
         client,
         """
         query GetSeverities {
-          severity(order_by: {weight: asc}) {
+          findingSeverity(order_by: {weight: asc}) {
             id
             severity
           }
@@ -72,114 +196,22 @@ async def get_severity_map(client: httpx.AsyncClient) -> dict[str, int]:
         """,
     )
     mapping: dict[str, int] = {}
-    for row in data.get("severity", []):
+    for row in data.get("findingSeverity", []):
         label = row["severity"].lower()
         mapping[label] = row["id"]
     return mapping
 
 
 # ---------------------------------------------------------------------------
-# Client
+# Report: find existing or create new
 # ---------------------------------------------------------------------------
 
-async def find_or_create_client(client: httpx.AsyncClient, name: str) -> int:
-    data = await _gql(
-        client,
-        """
-        query FindClient($name: String!) {
-          client(where: {name: {_eq: $name}}, limit: 1) { id }
-        }
-        """,
-        {"name": name},
-    )
-    rows = data.get("client", [])
-    if rows:
-        return rows[0]["id"]
-
-    data = await _gql(
-        client,
-        """
-        mutation CreateClient($name: String!) {
-          insert_client_one(object: {name: $name}) { id }
-        }
-        """,
-        {"name": name},
-    )
-    return data["insert_client_one"]["id"]
-
-
-# ---------------------------------------------------------------------------
-# Project
-# ---------------------------------------------------------------------------
-
-async def find_or_create_project(
-    client: httpx.AsyncClient,
-    gw_client_id: int,
-    name: str,
-    start_date: str | None,
-    end_date: str | None,
-) -> int:
-    data = await _gql(
-        client,
-        """
-        query FindProject($client_id: bigint!, $name: String!) {
-          project(where: {client_id: {_eq: $client_id}, name: {_eq: $name}}, limit: 1) { id }
-        }
-        """,
-        {"client_id": gw_client_id, "name": name},
-    )
-    rows = data.get("project", [])
-    if rows:
-        return rows[0]["id"]
-
-    obj: dict[str, Any] = {
-        "client_id": gw_client_id,
-        "name": name,
-    }
-    if start_date:
-        obj["start_date"] = start_date
-    if end_date:
-        obj["end_date"] = end_date
-
-    # project_type required — default to "Penetration Testing"
-    data2 = await _gql(
-        client,
-        """
-        query GetProjectType($name: String!) {
-          projecttype(where: {project_type: {_ilike: $name}}, limit: 1) { id }
-        }
-        """,
-        {"name": "%Penetration%"},
-    )
-    pt_rows = data2.get("projecttype", [])
-    if pt_rows:
-        obj["project_type_id"] = pt_rows[0]["id"]
-
-    data = await _gql(
-        client,
-        """
-        mutation CreateProject($obj: project_insert_input!) {
-          insert_project_one(object: $obj) { id }
-        }
-        """,
-        {"obj": obj},
-    )
-    return data["insert_project_one"]["id"]
-
-
-# ---------------------------------------------------------------------------
-# Report
-# ---------------------------------------------------------------------------
-
-async def find_or_create_report(
-    client: httpx.AsyncClient,
-    project_id: int,
-) -> int:
+async def find_or_create_report(client: httpx.AsyncClient, project_id: int) -> int:
     data = await _gql(
         client,
         """
         query FindReport($project_id: bigint!) {
-          report(where: {project_id: {_eq: $project_id}}, limit: 1, order_by: {id: asc}) { id }
+          report(where: {projectId: {_eq: $project_id}}, limit: 1, order_by: {id: asc}) { id }
         }
         """,
         {"project_id": project_id},
@@ -188,19 +220,18 @@ async def find_or_create_report(
     if rows:
         return rows[0]["id"]
 
-    # fetch any report template to satisfy the FK
     tpl = await _gql(
         client,
         """
-        query GetReportTemplate {
-          reporttemplate(limit: 1, order_by: {id: asc}) { id }
+        query GetTemplate {
+          template(limit: 1, order_by: {id: asc}) { id }
         }
         """,
     )
-    tpl_rows = tpl.get("reporttemplate", [])
-    obj: dict[str, Any] = {"project_id": project_id, "title": "HerdNote Export"}
+    obj: dict[str, Any] = {"projectId": project_id, "title": "HerdNote Export"}
+    tpl_rows = tpl.get("template", [])
     if tpl_rows:
-        obj["template_id"] = tpl_rows[0]["id"]
+        obj["docxTemplateId"] = tpl_rows[0]["id"]
 
     data = await _gql(
         client,
@@ -219,61 +250,54 @@ async def find_or_create_report(
 # ---------------------------------------------------------------------------
 
 def _format_affected_entities(assets: list) -> str:
-    """Build an 'Affected Scope' bullet list from linked Asset objects.
-
-    Produces lines like:
-        - 10.0.1.21:445/SMB (Deckhand-02.allports.local)
-        - 10.0.1.11:80/HTTP
-        - https://portal.allports.tours
-    """
-    lines: list[str] = []
+    """Return an HTML unordered list of affected assets for Ghostwriter's rich-text field."""
+    items: list[str] = []
     for a in assets:
         base = a.identifier or ""
         if a.services:
             for svc in a.services:
-                lines.append(f"- {base}:{svc}")
+                items.append(f"<li>{base}:{svc}</li>")
         else:
-            lines.append(f"- {base}")
-    return "\n".join(lines)
+            items.append(f"<li>{base}</li>")
+    if not items:
+        return ""
+    return "<ul>" + "".join(items) + "</ul>"
 
 
 def _build_finding_obj(
     f: "FindingDraft",
     report_id: int,
     severity_map: dict[str, int],
+    finding_type_map: dict[str, int],
+    default_type_id: int,
 ) -> dict[str, Any]:
     obj: dict[str, Any] = {
-        "report_id": report_id,
+        "reportId": report_id,
         "title": f.title,
+        "findingTypeId": _resolve_finding_type_id(f.finding_type, finding_type_map, default_type_id),
     }
     sev_id = severity_map.get(f.severity or "informational")
     if sev_id is not None:
-        obj["severity_id"] = sev_id
-    if f.description_md:
-        obj["description"] = f.description_md
-    if f.impact_md:
-        obj["impact"] = f.impact_md
-    if f.remediation_md:
-        obj["recommendation"] = f.remediation_md
-    if f.reproduction_md:
-        obj["replication_steps"] = f.reproduction_md
-    if f.references_md:
-        obj["references"] = f.references_md
-    if f.host_detection_md:
-        obj["host_detection_techniques"] = f.host_detection_md
-    if f.network_detection_md:
-        obj["net_detection_techniques"] = f.network_detection_md
+        obj["severityId"] = sev_id
+    if desc := _md_to_html(f.description_md):
+        obj["description"] = desc
+    if impact := _md_to_html(f.impact_md):
+        obj["impact"] = impact
+    if rem := _md_to_html(f.remediation_md):
+        obj["mitigation"] = rem
+    if repro := _md_to_html(f.reproduction_md):
+        obj["replication_steps"] = repro
+    if refs := _md_to_html(f.references_md):
+        obj["references"] = refs
+    if host := _md_to_html(f.host_detection_md):
+        obj["hostDetectionTechniques"] = host
+    if net := _md_to_html(f.network_detection_md):
+        obj["networkDetectionTechniques"] = net
     if f.cvss_score is not None:
-        obj["cvss_score"] = str(f.cvss_score)
+        obj["cvssScore"] = float(f.cvss_score)
     if f.cvss_vector:
-        obj["cvss_vector"] = f.cvss_vector
-    if f.cwe:
-        obj["cwe"] = f.cwe
-    if f.cve:
-        obj["cve"] = f.cve
-    # Affected Scope — linked assets formatted as "- IP:port/proto" bullets
-    if f.assets:
-        obj["affected_entities"] = _format_affected_entities(f.assets)
+        obj["cvssVector"] = f.cvss_vector
+    obj["affectedEntities"] = _format_affected_entities(f.assets)
     return obj
 
 
@@ -283,19 +307,21 @@ async def push_findings(
     findings: list["FindingDraft"],
     severity_map: dict[str, int],
 ) -> GhostwriterExportResult:
-    # Fetch titles of existing report findings
+    finding_type_map = await get_finding_type_map(client)
+    default_type_id = next(iter(finding_type_map.values()), 1)
+
     data = await _gql(
         client,
         """
         query ExistingFindings($report_id: bigint!) {
-          reportfindinglink(where: {report_id: {_eq: $report_id}}) { id title }
+          reportedFinding(where: {reportId: {_eq: $report_id}}) { id title }
         }
         """,
         {"report_id": report_id},
     )
     existing: dict[str, int] = {
         row["title"]: row["id"]
-        for row in data.get("reportfindinglink", [])
+        for row in data.get("reportedFinding", [])
     }
 
     pushed = 0
@@ -304,15 +330,15 @@ async def push_findings(
 
     for f in findings:
         try:
-            obj = _build_finding_obj(f, report_id, severity_map)
+            obj = _build_finding_obj(f, report_id, severity_map, finding_type_map, default_type_id)
             if f.title in existing:
                 gw_id = existing[f.title]
-                update_obj = {k: v for k, v in obj.items() if k not in ("report_id", "title")}
+                update_obj = {k: v for k, v in obj.items() if k not in ("reportId", "title")}
                 await _gql(
                     client,
                     """
-                    mutation UpdateFinding($id: bigint!, $set: reportfindinglink_set_input!) {
-                      update_reportfindinglink_by_pk(pk_columns: {id: $id}, _set: $set) { id }
+                    mutation UpdateFinding($id: bigint!, $set: reportedFinding_set_input!) {
+                      update_reportedFinding_by_pk(pk_columns: {id: $id}, _set: $set) { id }
                     }
                     """,
                     {"id": gw_id, "set": update_obj},
@@ -322,8 +348,8 @@ async def push_findings(
                 await _gql(
                     client,
                     """
-                    mutation InsertFinding($obj: reportfindinglink_insert_input!) {
-                      insert_reportfindinglink_one(object: $obj) { id }
+                    mutation InsertFinding($obj: reportedFinding_insert_input!) {
+                      insert_reportedFinding_one(object: $obj) { id }
                     }
                     """,
                     {"obj": obj},
@@ -343,23 +369,20 @@ async def export_engagement_to_ghostwriter(
     settings: "GhostwriterSettings",
     engagement: "Engagement",
     findings: list["FindingDraft"],
+    gw_report_id: int | None = None,
 ) -> GhostwriterExportResult:
     async with httpx.AsyncClient(
         base_url=settings.url,
-        headers={"Authorization": f"Bearer {settings.api_token}"},
+        headers=_gw_headers(settings),
         timeout=30.0,
+        verify=False,
     ) as gw:
         severity_map = await get_severity_map(gw)
 
-        client_name = engagement.client or engagement.name
-        gw_client_id = await find_or_create_client(gw, client_name)
-
-        start = str(engagement.start_date) if engagement.start_date else None
-        end = str(engagement.end_date) if engagement.end_date else None
-        gw_project_id = await find_or_create_project(
-            gw, gw_client_id, engagement.name, start, end
-        )
-
-        gw_report_id = await find_or_create_report(gw, gw_project_id)
+        if gw_report_id is None:
+            raise RuntimeError(
+                "Ghostwriter v6 does not support auto-creating clients and projects via GraphQL. "
+                "Please select an existing Ghostwriter project from the export modal."
+            )
 
         return await push_findings(gw, gw_report_id, findings, severity_map)
