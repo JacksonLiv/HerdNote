@@ -14,6 +14,7 @@ from app.models.engagement import Engagement, EngagementMember
 from app.models.evidence import Evidence
 from app.models.finding import FindingDraft, FindingTemplate
 from app.models.ghostwriter import GhostwriterSettings
+from app.models.report import EngagementReport
 from app.models.infra import Infrastructure, OplogEntry
 from app.models.inject import Inject, InjectTemplate
 from app.models.playbook import PlaybookState, WorkstreamNote
@@ -48,4 +49,5 @@ __all__ = [
     "Inject",
     "InjectTemplate",
     "GhostwriterSettings",
+    "EngagementReport",
 ]

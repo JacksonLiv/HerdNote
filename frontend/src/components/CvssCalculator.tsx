@@ -1,5 +1,5 @@
 import { Badge, Group, Select, SimpleGrid, Stack, Text } from "@mantine/core";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   CVSS_OPTIONS,
@@ -34,8 +34,22 @@ export function CvssCalculator({
 }) {
   const [state, setState] = useState<CvssState>(() => parseVector(vector));
   const result = useMemo(() => computeCvss(state), [state]);
+  const isFirstRender = useRef(true);
+
+  // When the finding loads async (vector changes from null → real vector),
+  // sync the calculator's internal state so the dropdowns and score are correct.
+  useEffect(() => {
+    if (vector) setState(parseVector(vector));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vector]);
 
   useEffect(() => {
+    // Skip the very first render when there's no saved vector — otherwise the
+    // default all-None state (score 0.0) would overwrite the finding's severity.
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      if (!vector) return;
+    }
     onChange(result);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result.vector]);

@@ -18,8 +18,22 @@ class ContactOut(ContactCreate):
     model_config = {"from_attributes": True}
 
 
+class ContactPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    role: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    notes_md: str | None = None
+
+
 class ClientCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
+    short_name: str | None = None
+    notes_md: str | None = None
+
+
+class ClientPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
     short_name: str | None = None
     notes_md: str | None = None
 

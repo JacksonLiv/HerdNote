@@ -1,6 +1,7 @@
 import {
   Badge,
   Button,
+  Divider,
   Group,
   Loader,
   Menu,
@@ -10,19 +11,19 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
 import {
   IconChevronDown,
-  IconCloudUpload,
   IconFileCode,
   IconSettings,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { exportEngagement, getEngagement, type Workstream } from "../api/client";
-import { GhostwriterExportModal } from "../components/GhostwriterExportModal";
+import { PhaseBar, type Phase } from "../components/PhaseBar";
+import { PreEngagementView } from "../components/PreEngagementView";
+import { PostEngagementView } from "../components/PostEngagementView";
 import { AccessPointsTab } from "../components/AccessPointsTab";
 import { AccessTab } from "../components/AccessTab";
 import { ADDomainTab } from "../components/ADDomainTab";
@@ -63,14 +64,17 @@ const ALL_TABS: WorkstreamTabKey[] = ["hosts", "findings", "access", "notes"];
 export function EngagementPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   useEngagementSync(id);
   const [ws, setWs] = useState<string>(ALL);
-  const [gwModalOpen, { open: openGw, close: closeGw }] = useDisclosure(false);
   const q = useQuery({
     queryKey: ["engagement", id],
     queryFn: () => getEngagement(id),
     enabled: !!id,
   });
+
+  const phase = (searchParams.get("phase") ?? "engagement") as Phase;
+  const setPhase = (p: Phase) => setSearchParams({ phase: p }, { replace: true });
 
   if (q.isLoading) return <Loader />;
   if (q.isError || !q.data) return <Text c="red">Engagement not found.</Text>;
@@ -126,48 +130,48 @@ export function EngagementPage() {
               >
                 Download JSON
               </Menu.Item>
-              <Menu.Item
-                leftSection={<IconCloudUpload size={14} />}
-                onClick={openGw}
-              >
-                Export to Ghostwriter
-              </Menu.Item>
             </Menu.Dropdown>
           </Menu>
         </Group>
       </Group>
 
-      <GhostwriterExportModal
-        opened={gwModalOpen}
-        onClose={closeGw}
-        engagement={e}
-      />
+      <PhaseBar phase={phase} onChange={setPhase} />
+      <Divider />
 
-      <Group gap="sm" align="center">
-        <Text size="sm" fw={600} c="dimmed">View:</Text>
-        <SegmentedControl
-          value={ws}
-          onChange={(v) => setWs(v)}
-          color="usfGreen"
-          data={[
-            { label: "All", value: ALL },
-            ...e.workstreams.map((w) => ({ label: w.name, value: w.id })),
-          ]}
-        />
-        <Text size="xs" c="dimmed">
-          {wsId
-            ? `${wsName} (${activeWs?.kind}). Dashboard stays global.`
-            : "Showing everything across all workstreams."}
-        </Text>
-      </Group>
+      {phase === "pre" && <PreEngagementView engagement={e} />}
 
-      <EngagementTabs
-        engagementId={e.id}
-        workstreams={e.workstreams}
-        activeWs={activeWs ?? null}
-        wsId={wsId}
-        tabKeys={tabKeys}
-      />
+      {phase === "engagement" && (
+        <>
+          <Group gap="sm" align="center">
+            <Text size="sm" fw={600} c="dimmed">View:</Text>
+            <SegmentedControl
+              value={ws}
+              onChange={(v) => setWs(v)}
+              color="usfGreen"
+              data={[
+                { label: "All", value: ALL },
+                ...e.workstreams.map((w) => ({ label: w.name, value: w.id })),
+              ]}
+            />
+            <Text size="xs" c="dimmed">
+              {wsId
+                ? `${wsName} (${activeWs?.kind}). Dashboard stays global.`
+                : "Showing everything across all workstreams."}
+            </Text>
+          </Group>
+          <EngagementTabs
+            engagementId={e.id}
+            workstreams={e.workstreams}
+            activeWs={activeWs ?? null}
+            wsId={wsId}
+            tabKeys={tabKeys}
+          />
+        </>
+      )}
+
+      {phase === "post" && (
+        <PostEngagementView engagement={e} onJsonDownload={handleJsonDownload} />
+      )}
     </Stack>
   );
 }

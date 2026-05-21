@@ -25,6 +25,7 @@ services:
       EVIDENCE_DIR: ${EVIDENCE_DIR}
     volumes:
       - evidence:/data/evidence
+      - report_templates:/data/report_templates
     depends_on:
       db:
         condition: service_healthy
@@ -46,3 +47,4 @@ services:
 volumes:
   pgdata:
   evidence:
+  report_templates:

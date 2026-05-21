@@ -21,6 +21,7 @@ from app.api import (
     infra,
     inject,
     playbook,
+    report,
     scratch_notes,
     social_campaigns,
     web,
@@ -93,6 +94,7 @@ app.include_router(inject.templates_router, prefix="/api")
 app.include_router(inject.msel_router, prefix="/api")
 app.include_router(export.router, prefix="/api")
 app.include_router(ghostwriter.router, prefix="/api")
+app.include_router(report.router, prefix="/api")
 
 # WebSocket (no /api prefix; nginx proxies /ws/).
 app.include_router(ws.router)

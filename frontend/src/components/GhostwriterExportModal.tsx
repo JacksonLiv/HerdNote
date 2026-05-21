@@ -25,15 +25,13 @@ import {
 } from "../api/client";
 import { SEVERITY_COLOR } from "../theme";
 
-const ALL_STATUSES = ["open", "accepted", "remediated", "false_positive", "draft"] as const;
+const ALL_STATUSES = ["not_done", "draft", "done"] as const;
 type FindingStatus = (typeof ALL_STATUSES)[number];
 
 const STATUS_LABEL: Record<FindingStatus, string> = {
-  open: "Open",
-  accepted: "Accepted risk",
-  remediated: "Remediated",
-  false_positive: "False positive",
-  draft: "Draft",
+  not_done: "Not Done",
+  draft:    "Draft",
+  done:     "Done",
 };
 
 const SEVERITIES = ["critical", "high", "medium", "low", "informational"] as const;
@@ -67,8 +65,7 @@ interface Props {
 
 export function GhostwriterExportModal({ opened, onClose, engagement }: Props) {
   const [selectedStatuses, setSelectedStatuses] = useState<FindingStatus[]>([
-    "open",
-    "accepted",
+    "done",
   ]);
   const [useExisting, setUseExisting] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);

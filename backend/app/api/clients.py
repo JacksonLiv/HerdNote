@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.core.db import get_db
 from app.core.deps import get_current_user, require_admin, verify_csrf
 from app.models.client import Client, ClientContact
-from app.schemas.client import ClientCreate, ClientOut, ContactCreate, ContactOut
+from app.schemas.client import ClientCreate, ClientPatch, ClientOut, ContactCreate, ContactPatch, ContactOut
 
 router = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -43,6 +43,29 @@ async def create_client(
     return c
 
 
+@router.patch(
+    "/{client_id}",
+    response_model=ClientOut,
+    dependencies=[Depends(verify_csrf), Depends(require_admin)],
+)
+async def update_client(
+    client_id: uuid.UUID,
+    payload: ClientPatch,
+    db: AsyncSession = Depends(get_db),
+) -> Client:
+    c = await db.scalar(
+        select(Client).where(Client.id == client_id).options(selectinload(Client.contacts))
+    )
+    if c is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    data = payload.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(c, k, v)
+    await db.commit()
+    await db.refresh(c)
+    return c
+
+
 @router.delete(
     "/{client_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -73,6 +96,28 @@ async def add_contact(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Client not found")
     contact = ClientContact(client_id=client_id, **payload.model_dump())
     db.add(contact)
+    await db.commit()
+    await db.refresh(contact)
+    return contact
+
+
+@router.patch(
+    "/{client_id}/contacts/{contact_id}",
+    response_model=ContactOut,
+    dependencies=[Depends(verify_csrf), Depends(require_admin)],
+)
+async def update_contact(
+    client_id: uuid.UUID,
+    contact_id: uuid.UUID,
+    payload: ContactPatch,
+    db: AsyncSession = Depends(get_db),
+) -> ClientContact:
+    contact = await db.get(ClientContact, contact_id)
+    if contact is None or contact.client_id != client_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    data = payload.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(contact, k, v)
     await db.commit()
     await db.refresh(contact)
     return contact

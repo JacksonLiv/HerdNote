@@ -7,6 +7,7 @@ import { AccountPage } from "./pages/AccountPage";
 import { AdminPage } from "./pages/AdminPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { EngagementPage } from "./pages/EngagementPage";
+import { FindingEditorPage } from "./pages/FindingEditorPage";
 import { LoginPage } from "./pages/LoginPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { WizardPage } from "./pages/WizardPage";
@@ -34,6 +35,10 @@ export function App() {
         <Route
           path="/engagements/:id/settings"
           element={<SettingsPage />}
+        />
+        <Route
+          path="/engagements/:id/findings/:fid"
+          element={<FindingEditorPage />}
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

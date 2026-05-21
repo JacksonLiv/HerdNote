@@ -78,6 +78,7 @@ export interface Engagement {
   id: string;
   name: string;
   client: string | null;
+  client_id: string | null;
   type: string;
   status: string;
   start_date: string | null;
@@ -163,6 +164,22 @@ export const listEngagements = async (): Promise<EngagementListItem[]> =>
 
 export const getEngagement = async (id: string): Promise<Engagement> =>
   (await api.get<Engagement>(`/engagements/${id}`)).data;
+
+export const patchEngagement = async (
+  id: string,
+  body: {
+    name?: string;
+    client?: string | null;
+    client_id?: string | null;
+    type?: string;
+    status?: string;
+    start_date?: string | null;
+    end_date?: string | null;
+    scope_md?: string | null;
+    roe_md?: string | null;
+  },
+): Promise<Engagement> =>
+  (await api.patch<Engagement>(`/engagements/${id}`, body)).data;
 
 export const addWorkstream = async (
   eid: string,
@@ -687,12 +704,7 @@ export type Severity =
   | "medium"
   | "low"
   | "informational";
-export type FindingStatus =
-  | "draft"
-  | "open"
-  | "remediated"
-  | "accepted"
-  | "false_positive";
+export type FindingStatus = "not_done" | "draft" | "done";
 export interface FindingTemplate {
   id: string;
   name: string;
@@ -1037,8 +1049,30 @@ export const createClient = async (body: {
   notes_md?: string | null;
 }): Promise<Client> => (await api.post<Client>("/clients", body)).data;
 
+export const updateClient = async (
+  id: string,
+  body: { name?: string; short_name?: string | null; notes_md?: string | null },
+): Promise<Client> => (await api.patch<Client>(`/clients/${id}`, body)).data;
+
 export const deleteClient = async (id: string): Promise<void> => {
   await api.delete(`/clients/${id}`);
+};
+
+export const updateContact = async (
+  clientId: string,
+  contactId: string,
+  body: { name?: string; role?: string | null; email?: string | null; phone?: string | null; notes_md?: string | null },
+): Promise<ClientContact> =>
+  (await api.patch<ClientContact>(`/clients/${clientId}/contacts/${contactId}`, body)).data;
+
+export const addContact = async (
+  clientId: string,
+  body: { name: string; role?: string | null; email?: string | null; phone?: string | null; notes_md?: string | null },
+): Promise<ClientContact> =>
+  (await api.post<ClientContact>(`/clients/${clientId}/contacts`, body)).data;
+
+export const deleteContact = async (clientId: string, contactId: string): Promise<void> => {
+  await api.delete(`/clients/${clientId}/contacts/${contactId}`);
 };
 
 // ---- scratch notes ----
@@ -1586,3 +1620,54 @@ export const exportToGhostwriter = async (
       { statuses, gw_report_id: gwReportId ?? null },
     )
   ).data;
+
+// ---- in-app report ----
+export interface AppendixItem {
+  type: string;
+  title: string;
+  included: boolean;
+  custom_md?: string | null;
+}
+
+export interface EngagementReport {
+  id: string;
+  engagement_id: string;
+  exec_summary_md: string | null;
+  recommendations_md: string | null;
+  selected_finding_ids: string[];
+  appendix_config: AppendixItem[];
+  template_file_path: string | null;
+}
+
+export const getReport = async (eid: string): Promise<EngagementReport> =>
+  (await api.get<EngagementReport>(`/engagements/${eid}/report`)).data;
+
+export const updateReport = async (
+  eid: string,
+  body: {
+    exec_summary_md?: string | null;
+    recommendations_md?: string | null;
+    selected_finding_ids?: string[];
+    appendix_config?: AppendixItem[];
+  },
+): Promise<EngagementReport> =>
+  (await api.put<EngagementReport>(`/engagements/${eid}/report`, body)).data;
+
+export const uploadReportTemplate = async (
+  eid: string,
+  file: File,
+): Promise<EngagementReport> => {
+  const fd = new FormData();
+  fd.append("file", file);
+  return (await api.post<EngagementReport>(`/engagements/${eid}/report/template`, fd)).data;
+};
+
+export const useDefaultReportTemplate = async (eid: string): Promise<EngagementReport> =>
+  (await api.post<EngagementReport>(`/engagements/${eid}/report/template/default`)).data;
+
+export const generateReport = async (eid: string): Promise<Blob> => {
+  const resp = await api.post(`/engagements/${eid}/report/generate`, {}, {
+    responseType: "blob",
+  });
+  return resp.data as Blob;
+};

@@ -62,12 +62,10 @@ const SEV_RANK: Record<string, number> = {
   low: 3,
   informational: 4,
 };
-const STATUSES: FindingStatus[] = [
-  "draft",
-  "open",
-  "remediated",
-  "accepted",
-  "false_positive",
+const STATUSES: { value: FindingStatus; label: string }[] = [
+  { value: "not_done", label: "Not Done" },
+  { value: "draft",    label: "Draft"    },
+  { value: "done",     label: "Done"     },
 ];
 
 type Editable = Partial<Finding> & { title: string };
@@ -176,7 +174,7 @@ function FindingEditor({
             data={STATUSES}
             allowDeselect={false}
             value={f.status}
-            onChange={(v) => set({ status: (v ?? "draft") as FindingStatus })}
+            onChange={(v) => set({ status: (v ?? "not_done") as FindingStatus })}
           />
         </Group>
 

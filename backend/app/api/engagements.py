@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -178,6 +179,37 @@ async def get_engagement(
     db: AsyncSession = Depends(get_db),
 ) -> EngagementOut:
     return await _serialize(db, eng)
+
+
+# --- patch engagement metadata ---
+class _EngPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    client: str | None = None
+    client_id: uuid.UUID | None = None
+    type: str | None = Field(default=None, max_length=24)
+    status: str | None = Field(default=None, pattern="^(planning|active|reporting|closed)$")
+    start_date: date | None = None
+    end_date: date | None = None
+    scope_md: str | None = None
+    roe_md: str | None = None
+
+
+@router.patch(
+    "/{engagement_id}",
+    response_model=EngagementOut,
+    dependencies=[Depends(verify_csrf)],
+)
+async def patch_engagement(
+    engagement_id: uuid.UUID,
+    payload: _EngPatch,
+    eng: Engagement = Depends(require_membership),
+    db: AsyncSession = Depends(get_db),
+) -> EngagementOut:
+    data = payload.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(eng, k, v)
+    await db.commit()
+    return await _serialize(db, await _load_full(db, engagement_id))
 
 
 # --- engagement settings: workstream management ---
