@@ -46,6 +46,12 @@ class InjectUpdate(BaseModel):
     assigned_to: uuid.UUID | None = None
     response_md: str | None = None
     verdict: str | None = Field(default=None, pattern=_VERDICT)
+    inject_number: int | None = None
+    point_value: int | None = None
+    score_awarded: int | None = None
+    score_completeness: str | None = None
+    expected_response_md: str | None = None
+    gap_analysis_md: str | None = None
 
 
 class InjectOut(BaseModel):
@@ -68,6 +74,54 @@ class InjectOut(BaseModel):
     responded_by: uuid.UUID | None
     attachments: list[dict[str, Any]]
     verdict: str | None
+    inject_number: int | None = None
+    point_value: int | None = None
+    score_awarded: int | None = None
+    score_completeness: str | None = None
+    expected_response_md: str | None = None
+    gap_analysis_md: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+# ── MSEL ─────────────────────────────────────────────────────────────────────
+
+
+class MSELCreate(BaseModel):
+    workstream_id: uuid.UUID
+    inject_number: int
+    title: str = Field(min_length=1, max_length=500)
+    scheduled_at: datetime | None = None
+    scenario_md: str | None = None
+    point_value: int = 10
+    expected_response_md: str | None = None
+
+
+class MSELUpdate(BaseModel):
+    inject_number: int | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=500)
+    scheduled_at: datetime | None = None
+    scenario_md: str | None = None
+    point_value: int | None = None
+    expected_response_md: str | None = None
+    inject_id: uuid.UUID | None = None
+    delivered_at: datetime | None = None
+
+
+class MSELOut(BaseModel):
+    id: uuid.UUID
+    engagement_id: uuid.UUID
+    workstream_id: uuid.UUID
+    inject_number: int
+    title: str
+    scheduled_at: datetime | None
+    scenario_md: str | None
+    point_value: int
+    expected_response_md: str | None
+    inject_id: uuid.UUID | None
+    delivered_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
 

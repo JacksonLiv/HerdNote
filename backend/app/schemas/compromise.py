@@ -3,10 +3,12 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models.compromise import ARTIFACT_TYPES, PRIVILEGE_LEVELS
+from app.models.compromise import ARTIFACT_TYPES, CRED_SOURCES, HASH_TYPES, PRIVILEGE_LEVELS
 
 PrivField = Field(default="user", pattern="^(" + "|".join(PRIVILEGE_LEVELS) + ")$")
 ArtTypeField = Field(default="other", pattern="^(" + "|".join(ARTIFACT_TYPES) + ")$")
+SourceField = Field(default=None, pattern="^(" + "|".join(CRED_SOURCES) + ")$")
+HashTypeField = Field(default=None, pattern="^(" + "|".join(HASH_TYPES) + ")$")
 
 
 # --- compromised users ---
@@ -20,6 +22,10 @@ class CompromisedUserCreate(BaseModel):
     secret: str | None = None  # plaintext in; stored encrypted.
     validated: bool = False
     notes_md: str | None = None
+    source: str | None = SourceField
+    hash_type: str | None = HashTypeField
+    cracked: bool = False
+    spn: str | None = None
 
 
 class CompromisedUserUpdate(BaseModel):
@@ -34,6 +40,10 @@ class CompromisedUserUpdate(BaseModel):
     secret: str | None = None
     validated: bool | None = None
     notes_md: str | None = None
+    source: str | None = Field(default=None, pattern="^(" + "|".join(CRED_SOURCES) + ")$")
+    hash_type: str | None = Field(default=None, pattern="^(" + "|".join(HASH_TYPES) + ")$")
+    cracked: bool | None = None
+    spn: str | None = None
 
 
 class CompromisedUserOut(BaseModel):
@@ -48,6 +58,10 @@ class CompromisedUserOut(BaseModel):
     has_secret: bool
     validated: bool
     notes_md: str | None
+    source: str | None
+    hash_type: str | None
+    cracked: bool
+    spn: str | None
     created_at: datetime
 
 

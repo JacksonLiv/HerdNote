@@ -37,6 +37,7 @@ class WorkstreamOut(BaseModel):
     name: str
     kind: str
     description_md: str | None
+    meta: dict = {}
     assignees: list[UserOut] = []
 
     model_config = {"from_attributes": True}

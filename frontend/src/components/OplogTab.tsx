@@ -31,6 +31,7 @@ const EMPTY = {
   dest_host: "",
   tool: "",
   command: "",
+  output: "",
   mitre_technique: "",
 };
 
@@ -62,6 +63,7 @@ export function OplogTab({
         dest_host: f.dest_host || null,
         tool: f.tool || null,
         command: f.command || null,
+        output: f.output || null,
         mitre_technique: f.mitre_technique || null,
       }),
     onSuccess: () => {
@@ -113,6 +115,15 @@ export function OplogTab({
             onChange={(e) => set({ command: e.currentTarget.value })}
             styles={{ input: { fontFamily: "monospace" } }}
           />
+          <Textarea
+            label="Output"
+            autosize
+            minRows={1}
+            value={f.output}
+            onChange={(e) => set({ output: e.currentTarget.value })}
+            styles={{ input: { fontFamily: "monospace" } }}
+            placeholder="stdout / result (optional)"
+          />
           <TextInput
             label="Description"
             required
@@ -146,6 +157,7 @@ export function OplogTab({
               <Table.Th>Operator</Table.Th>
               <Table.Th>Path</Table.Th>
               <Table.Th>Command</Table.Th>
+              <Table.Th>Output</Table.Th>
               <Table.Th>Description</Table.Th>
               <Table.Th />
             </Table.Tr>
@@ -176,6 +188,13 @@ export function OplogTab({
                     <Text size="xs" c="dimmed">
                       —
                     </Text>
+                  )}
+                </Table.Td>
+                <Table.Td>
+                  {e.output ? (
+                    <Code block style={{ maxWidth: 300, maxHeight: 60, overflow: "auto", fontSize: 11 }}>{e.output}</Code>
+                  ) : (
+                    <Text size="xs" c="dimmed">—</Text>
                   )}
                 </Table.Td>
                 <Table.Td>{e.description}</Table.Td>

@@ -215,7 +215,7 @@ function Editor({
 
 export function FindingTemplatesManager() {
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: ["templates"], queryFn: listTemplates });
+  const q = useQuery({ queryKey: ["templates"], queryFn: () => listTemplates() });
   const [editing, setEditing] = useState<Draft | null>(null);
 
   const del = useMutation({

@@ -15,18 +15,37 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { exportEngagement, getEngagement, type Workstream } from "../api/client";
+import { AccessPointsTab } from "../components/AccessPointsTab";
 import { AccessTab } from "../components/AccessTab";
+import { ADDomainTab } from "../components/ADDomainTab";
 import { AssetsTab } from "../components/AssetsTab";
+import { CampaignsTab } from "../components/CampaignsTab";
+import { CloudIAMTab } from "../components/CloudIAMTab";
+import { CompromisedUsersTab } from "../components/CompromisedUsersTab";
 import { DashboardTab } from "../components/DashboardTab";
+import { ExternalReconTab } from "../components/ExternalReconTab";
 import { FindingsTab } from "../components/FindingsTab";
 import { InboxTab } from "../components/InboxTab";
+import { InfraTab } from "../components/InfraTab";
+import { BuildingsTab } from "../components/BuildingsTab";
+import { InternalLootTab } from "../components/InternalLootTab";
+import { InternalSegmentsTab } from "../components/InternalSegmentsTab";
 import { LibraryTab } from "../components/LibraryTab";
+import { MSELTab } from "../components/MSELTab";
 import { NotesTab } from "../components/NotesTab";
+import { OplogTab } from "../components/OplogTab";
+import { PhysicalEvidenceTab } from "../components/PhysicalEvidenceTab";
 import { PlaybookTab } from "../components/PlaybookTab";
+import { SitesTab } from "../components/SitesTab";
+import { TargetsTab } from "../components/TargetsTab";
+import { WebEndpointsTab } from "../components/WebEndpointsTab";
+import { WebHostsTab } from "../components/WebHostsTab";
+import { WirelessClientsTab } from "../components/WirelessClientsTab";
+import { WorkstreamOverviewTab } from "../components/WorkstreamOverviewTab";
 import { useEngagementSync } from "../hooks/useEngagementSync";
 import {
   KIND_TABS,
-  TAB_LABEL,
+  tabLabel,
   type WorkstreamTabKey,
 } from "../lib/workstreamTabs";
 
@@ -77,9 +96,7 @@ export function EngagementPage() {
             leftSection={<IconDownload size={16} />}
             onClick={async () => {
               const data = await exportEngagement(e.id);
-              const blob = new Blob([JSON.stringify(data, null, 2)], {
-                type: "application/json",
-              });
+              const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
               const a = document.createElement("a");
               a.href = URL.createObjectURL(blob);
               a.download = `${e.name.replace(/\s+/g, "_")}_export.json`;
@@ -92,11 +109,8 @@ export function EngagementPage() {
         </Group>
       </Group>
 
-      {/* Workstream switcher — changes what every tab (except Dashboard) shows. */}
       <Group gap="sm" align="center">
-        <Text size="sm" fw={600} c="dimmed">
-          View:
-        </Text>
+        <Text size="sm" fw={600} c="dimmed">View:</Text>
         <SegmentedControl
           value={ws}
           onChange={(v) => setWs(v)}
@@ -108,7 +122,7 @@ export function EngagementPage() {
         />
         <Text size="xs" c="dimmed">
           {wsId
-            ? `Workstream tabs scoped to ${wsName} (${activeWs?.kind}). Dashboard stays global.`
+            ? `${wsName} (${activeWs?.kind}). Dashboard stays global.`
             : "Showing everything across all workstreams."}
         </Text>
       </Group>
@@ -137,21 +151,18 @@ function EngagementTabs({
   wsId: string | undefined;
   tabKeys: WorkstreamTabKey[];
 }) {
-  // Controlled: when the workstream (and therefore the available tab set)
-  // changes, snap back to Dashboard so we never land on a tab that just got
-  // hidden (e.g. Hosts when switching into the Inject workstream).
   const [tab, setTab] = useState<string>("dashboard");
-  useEffect(() => {
-    setTab("dashboard");
-  }, [activeWs?.id]);
+  useEffect(() => { setTab("dashboard"); }, [activeWs?.id]);
   const value = tab === "dashboard" || tabKeys.includes(tab as WorkstreamTabKey) ? tab : "dashboard";
+  const kind = activeWs?.kind;
+
   return (
     <Tabs value={value} onChange={(v) => v && setTab(v)} color="usfGreen" keepMounted={false}>
       <Tabs.List>
         <Tabs.Tab value="dashboard">Dashboard</Tabs.Tab>
         {tabKeys.map((k) => (
           <Tabs.Tab key={k} value={k}>
-            {TAB_LABEL[k]}
+            {kind ? tabLabel(kind, k) : k}
           </Tabs.Tab>
         ))}
       </Tabs.List>
@@ -160,49 +171,78 @@ function EngagementTabs({
         <DashboardTab eid={engagementId} />
       </Tabs.Panel>
 
+      {tabKeys.includes("overview") && activeWs && (
+        <Tabs.Panel value="overview" pt="md">
+          <WorkstreamOverviewTab
+            eid={engagementId}
+            wsId={activeWs.id}
+            kind={activeWs.kind}
+            name={activeWs.name}
+          />
+        </Tabs.Panel>
+      )}
+
       {tabKeys.includes("playbook") && activeWs && (
         <Tabs.Panel value="playbook" pt="md">
           <PlaybookTab eid={engagementId} workstream={activeWs} />
         </Tabs.Panel>
       )}
 
-      {tabKeys.includes("hosts") && (
-        <Tabs.Panel value="hosts" pt="md">
-          <AssetsTab
+      {tabKeys.includes("creds") && (
+        <Tabs.Panel value="creds" pt="md">
+          <CompromisedUsersTab
             eid={engagementId}
             workstreams={workstreams}
             workstreamId={wsId}
           />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("hosts") && (
+        <Tabs.Panel value="hosts" pt="md">
+          <AssetsTab eid={engagementId} workstreams={workstreams} workstreamId={wsId} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("aps") && activeWs && (
+        <Tabs.Panel value="aps" pt="md">
+          <AccessPointsTab eid={engagementId} wsId={activeWs.id} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("sites") && activeWs && (
+        <Tabs.Panel value="sites" pt="md">
+          <SitesTab eid={engagementId} wsId={activeWs.id} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("targets") && activeWs && (
+        <Tabs.Panel value="targets" pt="md">
+          <TargetsTab eid={engagementId} wsId={activeWs.id} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("campaigns") && activeWs && (
+        <Tabs.Panel value="campaigns" pt="md">
+          <CampaignsTab eid={engagementId} wsId={activeWs.id} />
         </Tabs.Panel>
       )}
 
       {tabKeys.includes("findings") && (
         <Tabs.Panel value="findings" pt="md">
-          <FindingsTab
-            eid={engagementId}
-            workstreams={workstreams}
-            workstreamId={wsId}
-          />
+          <FindingsTab eid={engagementId} workstreams={workstreams} workstreamId={wsId} workstreamKind={activeWs?.kind} />
         </Tabs.Panel>
       )}
 
       {tabKeys.includes("access") && (
         <Tabs.Panel value="access" pt="md">
-          <AccessTab
-            eid={engagementId}
-            workstreams={workstreams}
-            workstreamId={wsId}
-          />
+          <AccessTab eid={engagementId} workstreams={workstreams} workstreamId={wsId} />
         </Tabs.Panel>
       )}
 
       {tabKeys.includes("notes") && (
         <Tabs.Panel value="notes" pt="md">
-          <NotesTab
-            eid={engagementId}
-            workstreams={workstreams}
-            workstreamId={wsId}
-          />
+          <NotesTab eid={engagementId} workstreams={workstreams} workstreamId={wsId} />
         </Tabs.Panel>
       )}
 
@@ -217,7 +257,84 @@ function EngagementTabs({
           <LibraryTab eid={engagementId} />
         </Tabs.Panel>
       )}
+
+      {tabKeys.includes("domain") && activeWs && (
+        <Tabs.Panel value="domain" pt="md">
+          <ADDomainTab eid={engagementId} ws={activeWs} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("clients") && activeWs && (
+        <Tabs.Panel value="clients" pt="md">
+          <WirelessClientsTab eid={engagementId} wsId={activeWs.id} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("recon") && activeWs && (
+        <Tabs.Panel value="recon" pt="md">
+          <ExternalReconTab eid={engagementId} wsId={activeWs.id} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("endpoints") && activeWs && (
+        <Tabs.Panel value="endpoints" pt="md">
+          <WebEndpointsTab eid={engagementId} wsId={activeWs.id} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("iam") && activeWs && (
+        <Tabs.Panel value="iam" pt="md">
+          <CloudIAMTab eid={engagementId} wsId={activeWs.id} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("evidence") && activeWs && (
+        <Tabs.Panel value="evidence" pt="md">
+          <PhysicalEvidenceTab eid={engagementId} wsId={activeWs.id} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("segments") && activeWs && (
+        <Tabs.Panel value="segments" pt="md">
+          <InternalSegmentsTab eid={engagementId} wsId={activeWs.id} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("loot") && activeWs && (
+        <Tabs.Panel value="loot" pt="md">
+          <InternalLootTab eid={engagementId} wsId={activeWs.id} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("infra") && (
+        <Tabs.Panel value="infra" pt="md">
+          <InfraTab eid={engagementId} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("oplog") && (
+        <Tabs.Panel value="oplog" pt="md">
+          <OplogTab eid={engagementId} workstreams={workstreams} workstreamId={wsId} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("web_hosts") && activeWs && (
+        <Tabs.Panel value="web_hosts" pt="md">
+          <WebHostsTab eid={engagementId} wsId={activeWs.id} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("buildings") && activeWs && (
+        <Tabs.Panel value="buildings" pt="md">
+          <BuildingsTab eid={engagementId} wsId={activeWs.id} />
+        </Tabs.Panel>
+      )}
+
+      {tabKeys.includes("msel") && activeWs && (
+        <Tabs.Panel value="msel" pt="md">
+          <MSELTab eid={engagementId} wsId={activeWs.id} />
+        </Tabs.Panel>
+      )}
     </Tabs>
   );
 }
-

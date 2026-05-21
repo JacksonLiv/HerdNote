@@ -20,6 +20,8 @@ from app.api import (
     infra,
     inject,
     playbook,
+    scratch_notes,
+    social_campaigns,
     web,
     ws,
 )
@@ -78,11 +80,16 @@ app.include_router(finding.templates_router, prefix="/api")
 app.include_router(finding.findings_router, prefix="/api")
 app.include_router(web.domains_router, prefix="/api")
 app.include_router(web.webapps_router, prefix="/api")
+app.include_router(web.web_hosts_router, prefix="/api")
+app.include_router(web.web_subdomains_router, prefix="/api")
 app.include_router(infra.infra_router, prefix="/api")
 app.include_router(infra.oplog_router, prefix="/api")
 app.include_router(playbook.router, prefix="/api")
+app.include_router(scratch_notes.router, prefix="/api")
+app.include_router(social_campaigns.router, prefix="/api")
 app.include_router(inject.injects_router, prefix="/api")
 app.include_router(inject.templates_router, prefix="/api")
+app.include_router(inject.msel_router, prefix="/api")
 app.include_router(export.router, prefix="/api")
 
 # WebSocket (no /api prefix; nginx proxies /ws/).

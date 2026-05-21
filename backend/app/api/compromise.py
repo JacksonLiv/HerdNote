@@ -19,6 +19,7 @@ from app.schemas.compromise import (
     CompromisedUserUpdate,
     SecretReveal,
 )
+from app.services.discord import notify_new_credential
 
 users_router = APIRouter(
     prefix="/engagements/{engagement_id}/compromised-users",
@@ -45,6 +46,10 @@ def _cu_out(cu: CompromisedUser) -> CompromisedUserOut:
         has_secret=cu.secret_encrypted is not None,
         validated=cu.validated,
         notes_md=cu.notes_md,
+        source=cu.source,
+        hash_type=cu.hash_type,
+        cracked=cu.cracked,
+        spn=cu.spn,
         created_at=cu.created_at,
     )
 
@@ -98,11 +103,24 @@ async def create_compromised_user(
         secret_encrypted=encrypt_secret(payload.secret) if payload.secret else None,
         validated=payload.validated,
         notes_md=payload.notes_md,
+        source=payload.source,
+        hash_type=payload.hash_type,
+        cracked=payload.cracked,
+        spn=payload.spn,
         created_by=user.id,
     )
     db.add(cu)
     await db.commit()
     await db.refresh(cu)
+    await notify_new_credential(
+        db=db,
+        engagement_id=str(engagement_id),
+        username=cu.username,
+        domain=cu.domain,
+        privilege=cu.privilege,
+        source=cu.source,
+        added_by_name=user.display_name,
+    )
     return _cu_out(cu)
 
 

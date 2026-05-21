@@ -15,3 +15,4 @@ class User(Base, TimestampMixin):
     display_name: Mapped[str] = mapped_column(String(120))
     # "admin" | "operator"
     role: Mapped[str] = mapped_column(String(16), default="operator")
+    discord_webhook_url: Mapped[str | None] = mapped_column(String(500), nullable=True)

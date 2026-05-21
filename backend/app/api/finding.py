@@ -1,7 +1,8 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import cast, select
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -25,13 +26,32 @@ findings_router = APIRouter(
     dependencies=[Depends(require_engagement)],
 )
 
+# Maps workstream kind → the tag used on templates for that kind.
+_KIND_TAG: dict[str, str] = {
+    "active_directory": "active-directory",
+    "web": "web",
+    "external": "external",
+    "internal": "internal",
+    "wireless": "wireless",
+    "cloud": "cloud",
+    "social_engineering": "social-engineering",
+    "physical": "physical",
+}
+
 
 # --- templates (global library) ---
 @templates_router.get(
     "", response_model=list[TemplateOut], dependencies=[Depends(get_current_user)]
 )
-async def list_templates(db: AsyncSession = Depends(get_db)) -> list[FindingTemplate]:
-    res = await db.scalars(select(FindingTemplate).order_by(FindingTemplate.name))
+async def list_templates(
+    workstream_kind: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> list[FindingTemplate]:
+    q = select(FindingTemplate).order_by(FindingTemplate.name)
+    tag = _KIND_TAG.get(workstream_kind or "")
+    if tag:
+        q = q.where(cast(FindingTemplate.tags, JSONB).contains(cast([tag], JSONB)))
+    res = await db.scalars(q)
     return list(res)
 
 

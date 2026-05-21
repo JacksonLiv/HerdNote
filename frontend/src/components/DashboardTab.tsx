@@ -1,17 +1,21 @@
 import {
+  ActionIcon,
   Badge,
   Card,
   Group,
   Loader,
+  Modal,
   SimpleGrid,
   Stack,
   Table,
   Text,
   Title,
 } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
+import { IconEye } from "@tabler/icons-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
-import { getDashboard } from "../api/client";
+import { getDashboard, revealSecret } from "../api/client";
 import { ASSET_STATE_COLOR } from "../theme";
 
 const SEV_ORDER = ["critical", "high", "medium", "low", "informational"];
@@ -51,6 +55,9 @@ export function DashboardTab({
   eid: string;
   workstreamId?: string;
 }) {
+  const [revealed, setRevealed] = useState<{ user: string; secret: string } | null>(null);
+  const reveal = useMutation({ mutationFn: (id: string) => revealSecret(eid, id) });
+
   const q = useQuery({
     queryKey: ["dashboard", eid, workstreamId ?? "all"],
     queryFn: () => getDashboard(eid, workstreamId),
@@ -216,13 +223,20 @@ export function DashboardTab({
                     </Table.Td>
                     <Table.Td>
                       {c.has_secret ? (
-                        <Badge variant="outline" color="usfGreen">
-                          secret
-                        </Badge>
+                        <ActionIcon
+                          variant="subtle"
+                          color="usfGreen"
+                          size="sm"
+                          loading={reveal.isPending}
+                          onClick={async () => {
+                            const secret = await reveal.mutateAsync(c.id);
+                            setRevealed({ user: c.username, secret });
+                          }}
+                        >
+                          <IconEye size={14} />
+                        </ActionIcon>
                       ) : (
-                        <Text size="xs" c="dimmed">
-                          no secret
-                        </Text>
+                        <Text size="xs" c="dimmed">no secret</Text>
                       )}
                     </Table.Td>
                   </Table.Tr>
@@ -276,6 +290,19 @@ export function DashboardTab({
           ))}
         </SimpleGrid>
       )}
+
+      <Modal
+        opened={revealed !== null}
+        onClose={() => setRevealed(null)}
+        title={`Secret for ${revealed?.user ?? ""}`}
+        centered
+      >
+        <Card withBorder>
+          <Text ff="monospace" style={{ wordBreak: "break-all" }}>
+            {revealed?.secret}
+          </Text>
+        </Card>
+      </Modal>
     </Stack>
   );
 }

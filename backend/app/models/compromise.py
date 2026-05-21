@@ -14,6 +14,14 @@ PRIVILEGE_LEVELS = (
     "service",
     "other",
 )
+CRED_SOURCES = (
+    "kerberoast", "asrep", "spray", "llmnr", "secretsdump",
+    "dcsync", "manual", "mitm", "bruteforce", "phishing", "other",
+)
+HASH_TYPES = (
+    "ntlm", "aes128", "aes256", "rc4", "plaintext",
+    "netntlmv2", "kerb5tgs", "kerb5asrep", "other",
+)
 ARTIFACT_TYPES = (
     "account",
     "webshell",
@@ -48,6 +56,10 @@ class CompromisedUser(Base, TimestampMixin):
     secret_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     validated: Mapped[bool] = mapped_column(Boolean, default=False)
     notes_md: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    hash_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    cracked: Mapped[bool] = mapped_column(Boolean, default=False)
+    spn: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
 

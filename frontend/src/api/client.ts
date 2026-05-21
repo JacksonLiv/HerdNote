@@ -30,6 +30,7 @@ export interface User {
   username: string;
   display_name: string;
   role: string;
+  discord_webhook_url: string | null;
 }
 export interface Me extends User {
   csrf_token: string;
@@ -66,6 +67,7 @@ export interface Workstream {
   name: string;
   kind: WorkstreamKind;
   description_md: string | null;
+  meta: Record<string, unknown>;
   assignees: User[];
 }
 export interface Member {
@@ -128,6 +130,19 @@ export const logout = async (): Promise<void> => {
   setCsrf(null);
 };
 
+export const updateProfile = async (body: {
+  display_name?: string;
+  discord_webhook_url?: string | null;
+}): Promise<Me> => {
+  const me = (await api.patch<Me>("/auth/me", body)).data;
+  setCsrf(me.csrf_token);
+  return me;
+};
+
+export const testDiscordWebhook = async (): Promise<void> => {
+  await api.post("/auth/me/test-discord");
+};
+
 export const listUsers = async (): Promise<User[]> =>
   (await api.get<User[]>("/auth/users")).data;
 
@@ -154,6 +169,13 @@ export const addWorkstream = async (
   body: { name: string; kind: string },
 ): Promise<Engagement> =>
   (await api.post<Engagement>(`/engagements/${eid}/workstreams`, body)).data;
+
+export const patchWorkstream = async (
+  eid: string,
+  wsId: string,
+  body: { name?: string; description_md?: string | null; meta?: Record<string, unknown> },
+): Promise<Engagement> =>
+  (await api.patch<Engagement>(`/engagements/${eid}/workstreams/${wsId}`, body)).data;
 
 export const removeWorkstream = async (
   eid: string,
@@ -186,7 +208,9 @@ export interface Asset {
   state: AssetState;
   tags: string[];
   notes_md: string | null;
+  meta: Record<string, unknown>;
   owner_op: string | null;
+  parent_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -229,6 +253,9 @@ export const createAsset = async (
     os?: string | null;
     in_scope?: boolean;
     workstream_ids?: string[];
+    meta?: Record<string, unknown>;
+    notes_md?: string | null;
+    parent_id?: string | null;
   },
 ): Promise<Asset> =>
   (await api.post<Asset>(`/engagements/${eid}/assets`, body)).data;
@@ -239,7 +266,7 @@ export const updateAsset = async (
   patch: Partial<
     Pick<
       Asset,
-      "identifier" | "state" | "in_scope" | "tags" | "os" | "notes_md" | "type"
+      "identifier" | "state" | "in_scope" | "tags" | "os" | "notes_md" | "type" | "meta" | "parent_id"
     >
   > & { workstream_ids?: string[] },
 ): Promise<Asset> =>
@@ -340,6 +367,12 @@ export type Privilege =
   | "root"
   | "service"
   | "other";
+export type CredSource =
+  | "kerberoast" | "asrep" | "spray" | "llmnr" | "secretsdump"
+  | "dcsync" | "manual" | "mitm" | "bruteforce" | "phishing" | "other";
+export type HashType =
+  | "ntlm" | "aes128" | "aes256" | "rc4" | "plaintext"
+  | "netntlmv2" | "kerb5tgs" | "kerb5asrep" | "other";
 export interface CompromisedUser {
   id: string;
   engagement_id: string;
@@ -352,6 +385,10 @@ export interface CompromisedUser {
   has_secret: boolean;
   validated: boolean;
   notes_md: string | null;
+  source: CredSource | null;
+  hash_type: HashType | null;
+  cracked: boolean;
+  spn: string | null;
   created_at: string;
 }
 export interface CompromisedUserInput {
@@ -362,6 +399,10 @@ export interface CompromisedUserInput {
   secret?: string | null;
   validated?: boolean;
   workstream_id?: string | null;
+  source?: CredSource | null;
+  hash_type?: HashType | null;
+  cracked?: boolean;
+  spn?: string | null;
 }
 
 export const listCompromisedUsers = async (
@@ -697,8 +738,10 @@ export type FindingInput = Partial<
   Omit<Finding, "id" | "engagement_id" | "asset_ids">
 > & { title: string; asset_ids?: string[]; template_id?: string | null };
 
-export const listTemplates = async (): Promise<FindingTemplate[]> =>
-  (await api.get<FindingTemplate[]>("/finding-templates")).data;
+export const listTemplates = async (workstreamKind?: string): Promise<FindingTemplate[]> =>
+  (await api.get<FindingTemplate[]>("/finding-templates", {
+    params: workstreamKind ? { workstream_kind: workstreamKind } : undefined,
+  })).data;
 
 export const createTemplate = async (
   body: Partial<TemplateInput> & { name: string },
@@ -889,6 +932,84 @@ export const deleteWebApp = async (eid: string, id: string): Promise<void> => {
   await api.delete(`/engagements/${eid}/webapps/${id}`);
 };
 
+// ---- web hosts & subdomains ----
+export interface WebHost {
+  id: string;
+  engagement_id: string;
+  workstream_id: string | null;
+  fqdn: string;
+  ip: string | null;
+  in_scope: boolean;
+  notes_md: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type SubdomainState = "untouched" | "enumerated" | "exploited" | "compromised" | "cleaned";
+export type SubdomainAuth = "unknown" | "none" | "basic" | "form" | "sso" | "mfa" | "cert" | "api_key";
+
+export interface WebSubdomain {
+  id: string;
+  host_id: string;
+  engagement_id: string;
+  workstream_id: string | null;
+  fqdn: string;
+  ip: string | null;
+  status_code: number | null;
+  title: string | null;
+  tech: string | null;
+  auth: SubdomainAuth;
+  in_scope: boolean;
+  state: SubdomainState;
+  notes_md: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const listWebHosts = async (eid: string, wsId?: string): Promise<WebHost[]> =>
+  (await api.get<WebHost[]>(`/engagements/${eid}/web-hosts`, { params: wsId ? { workstream_id: wsId } : {} })).data;
+
+export const createWebHost = async (eid: string, body: {
+  fqdn: string; ip?: string | null; in_scope?: boolean; notes_md?: string | null; workstream_id?: string | null;
+}): Promise<WebHost> =>
+  (await api.post<WebHost>(`/engagements/${eid}/web-hosts`, body)).data;
+
+export const updateWebHost = async (eid: string, id: string, patch: Partial<{
+  fqdn: string; ip: string | null; in_scope: boolean; notes_md: string | null; workstream_id: string | null;
+}>): Promise<WebHost> =>
+  (await api.patch<WebHost>(`/engagements/${eid}/web-hosts/${id}`, patch)).data;
+
+export const deleteWebHost = async (eid: string, id: string): Promise<void> => {
+  await api.delete(`/engagements/${eid}/web-hosts/${id}`);
+};
+
+export const listWebSubdomains = async (eid: string, opts: { hostId?: string; wsId?: string } = {}): Promise<WebSubdomain[]> =>
+  (await api.get<WebSubdomain[]>(`/engagements/${eid}/web-subdomains`, {
+    params: { ...(opts.hostId ? { host_id: opts.hostId } : {}), ...(opts.wsId ? { workstream_id: opts.wsId } : {}) },
+  })).data;
+
+export const createWebSubdomain = async (eid: string, body: {
+  host_id: string; fqdn: string; ip?: string | null; status_code?: number | null;
+  title?: string | null; tech?: string | null; auth?: SubdomainAuth;
+  in_scope?: boolean; state?: SubdomainState; notes_md?: string | null; workstream_id?: string | null;
+}): Promise<WebSubdomain> =>
+  (await api.post<WebSubdomain>(`/engagements/${eid}/web-subdomains`, body)).data;
+
+export const bulkCreateWebSubdomains = async (eid: string, body: {
+  host_id: string; text: string; workstream_id?: string | null;
+}): Promise<WebSubdomain[]> =>
+  (await api.post<WebSubdomain[]>(`/engagements/${eid}/web-subdomains/bulk`, body)).data;
+
+export const updateWebSubdomain = async (eid: string, id: string, patch: Partial<{
+  fqdn: string; ip: string | null; status_code: number | null; title: string | null;
+  tech: string | null; auth: SubdomainAuth; in_scope: boolean; state: SubdomainState; notes_md: string | null;
+}>): Promise<WebSubdomain> =>
+  (await api.patch<WebSubdomain>(`/engagements/${eid}/web-subdomains/${id}`, patch)).data;
+
+export const deleteWebSubdomain = async (eid: string, id: string): Promise<void> => {
+  await api.delete(`/engagements/${eid}/web-subdomains/${id}`);
+};
+
 // ---- clients ----
 export interface ClientContact {
   id: string;
@@ -918,6 +1039,88 @@ export const createClient = async (body: {
 
 export const deleteClient = async (id: string): Promise<void> => {
   await api.delete(`/clients/${id}`);
+};
+
+// ---- scratch notes ----
+export interface ScratchNote {
+  id: string;
+  engagement_id: string;
+  workstream_id: string;
+  title: string;
+  body: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const listScratchNotes = async (eid: string, wsId: string): Promise<ScratchNote[]> =>
+  (await api.get<ScratchNote[]>(`/engagements/${eid}/workstreams/${wsId}/scratch-notes`)).data;
+
+export const createScratchNote = async (eid: string, wsId: string, body: { title?: string; body?: string | null }): Promise<ScratchNote> =>
+  (await api.post<ScratchNote>(`/engagements/${eid}/workstreams/${wsId}/scratch-notes`, body)).data;
+
+export const updateScratchNote = async (eid: string, wsId: string, id: string, patch: { title?: string; body?: string | null }): Promise<ScratchNote> =>
+  (await api.patch<ScratchNote>(`/engagements/${eid}/workstreams/${wsId}/scratch-notes/${id}`, patch)).data;
+
+export const deleteScratchNote = async (eid: string, wsId: string, id: string): Promise<void> => {
+  await api.delete(`/engagements/${eid}/workstreams/${wsId}/scratch-notes/${id}`);
+};
+
+// ---- social campaigns ----
+export type CampaignType = "email" | "vishing" | "smishing" | "usb_drop" | "other";
+export type CampaignStatus = "planned" | "active" | "complete";
+export interface SocialCampaign {
+  id: string;
+  engagement_id: string;
+  workstream_id: string;
+  name: string;
+  campaign_type: CampaignType;
+  campaign_status: CampaignStatus;
+  sent: number | null;
+  clicked: number | null;
+  submitted: number | null;
+  mfa_bypassed: number | null;
+  reported: number | null;
+  pretext_md: string | null;
+  from_address: string | null;
+  landing_url: string | null;
+  tool_ref: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  notes_md: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface SocialCampaignInput {
+  name: string;
+  campaign_type?: CampaignType;
+  campaign_status?: CampaignStatus;
+  sent?: number | null;
+  clicked?: number | null;
+  submitted?: number | null;
+  mfa_bypassed?: number | null;
+  reported?: number | null;
+  pretext_md?: string | null;
+  from_address?: string | null;
+  landing_url?: string | null;
+  tool_ref?: string | null;
+  started_at?: string | null;
+  ended_at?: string | null;
+  notes_md?: string | null;
+}
+
+export const listCampaigns = async (eid: string, wsId: string): Promise<SocialCampaign[]> =>
+  (await api.get<SocialCampaign[]>(`/engagements/${eid}/workstreams/${wsId}/campaigns`)).data;
+
+export const createCampaign = async (eid: string, wsId: string, body: SocialCampaignInput): Promise<SocialCampaign> =>
+  (await api.post<SocialCampaign>(`/engagements/${eid}/workstreams/${wsId}/campaigns`, body)).data;
+
+export const updateCampaign = async (eid: string, wsId: string, id: string, patch: Partial<SocialCampaignInput>): Promise<SocialCampaign> =>
+  (await api.patch<SocialCampaign>(`/engagements/${eid}/workstreams/${wsId}/campaigns/${id}`, patch)).data;
+
+export const deleteCampaign = async (eid: string, wsId: string, id: string): Promise<void> => {
+  await api.delete(`/engagements/${eid}/workstreams/${wsId}/campaigns/${id}`);
 };
 
 export const addClientContact = async (
@@ -1141,6 +1344,12 @@ export interface Inject {
   responded_by: string | null;
   attachments: Array<Record<string, unknown>>;
   verdict: InjectVerdict | null;
+  inject_number: number | null;
+  point_value: number | null;
+  score_awarded: number | null;
+  score_completeness: string | null;
+  expected_response_md: string | null;
+  gap_analysis_md: string | null;
 }
 
 export interface InjectInput {
@@ -1168,6 +1377,12 @@ export interface InjectPatch {
   assigned_to?: string | null;
   response_md?: string | null;
   verdict?: InjectVerdict | null;
+  inject_number?: number | null;
+  point_value?: number | null;
+  score_awarded?: number | null;
+  score_completeness?: string | null;
+  expected_response_md?: string | null;
+  gap_analysis_md?: string | null;
 }
 
 export interface InjectTemplate {
@@ -1268,4 +1483,51 @@ export const deleteInjectTemplate = async (
   id: string,
 ): Promise<void> => {
   await api.delete(`/engagements/${eid}/inject-templates/${id}`);
+};
+
+// ---- MSEL ----
+export interface MSELEntry {
+  id: string;
+  engagement_id: string;
+  workstream_id: string;
+  inject_number: number;
+  title: string;
+  scheduled_at: string | null;
+  scenario_md: string | null;
+  point_value: number;
+  expected_response_md: string | null;
+  inject_id: string | null;
+  delivered_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const listMSEL = async (eid: string, wsId?: string): Promise<MSELEntry[]> =>
+  (await api.get<MSELEntry[]>(`/engagements/${eid}/msel`, { params: wsId ? { workstream_id: wsId } : {} })).data;
+
+export const createMSELEntry = async (eid: string, body: {
+  workstream_id: string;
+  inject_number: number;
+  title: string;
+  scheduled_at?: string | null;
+  scenario_md?: string | null;
+  point_value?: number;
+  expected_response_md?: string | null;
+}): Promise<MSELEntry> =>
+  (await api.post<MSELEntry>(`/engagements/${eid}/msel`, body)).data;
+
+export const updateMSELEntry = async (eid: string, id: string, patch: Partial<{
+  inject_number: number;
+  title: string;
+  scheduled_at: string | null;
+  scenario_md: string | null;
+  point_value: number;
+  expected_response_md: string | null;
+  inject_id: string | null;
+  delivered_at: string | null;
+}>): Promise<MSELEntry> =>
+  (await api.patch<MSELEntry>(`/engagements/${eid}/msel/${id}`, patch)).data;
+
+export const deleteMSELEntry = async (eid: string, id: string): Promise<void> => {
+  await api.delete(`/engagements/${eid}/msel/${id}`);
 };

@@ -15,6 +15,9 @@ class AssetCreate(BaseModel):
     workstream_ids: list[uuid.UUID] = []
     os: str | None = None
     in_scope: bool = True
+    meta: dict = {}
+    notes_md: str | None = None
+    parent_id: uuid.UUID | None = None
 
 
 class BulkAssetCreate(BaseModel):
@@ -33,6 +36,8 @@ class AssetUpdate(BaseModel):
     state: str | None = Field(default=None, pattern="^(" + "|".join(ASSET_STATES) + ")$")
     tags: list[str] | None = None
     notes_md: str | None = None
+    meta: dict | None = None
+    parent_id: uuid.UUID | None = None
 
 
 class WorkstreamRef(BaseModel):
@@ -56,7 +61,9 @@ class AssetOut(BaseModel):
     state: str
     tags: list
     notes_md: str | None
+    meta: dict
     owner_op: uuid.UUID | None
+    parent_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
 

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, uuid_pk
@@ -61,6 +61,12 @@ class Inject(Base, TimestampMixin):
     )
     attachments: Mapped[list] = mapped_column(JSON, default=list)
     verdict: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    inject_number: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    point_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    score_awarded: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    score_completeness: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    expected_response_md: Mapped[str | None] = mapped_column(Text, nullable=True)
+    gap_analysis_md: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class InjectTemplate(Base, TimestampMixin):
@@ -79,3 +85,27 @@ class InjectTemplate(Base, TimestampMixin):
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+
+
+class MSELEntry(Base, TimestampMixin):
+    """Pre-planned scenario event for the Master Scenario Events List."""
+
+    __tablename__ = "msel_entry"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    engagement_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("engagements.id", ondelete="CASCADE"), index=True
+    )
+    workstream_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workstreams.id", ondelete="CASCADE"), index=True
+    )
+    inject_number: Mapped[int] = mapped_column(Integer, index=True)
+    scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    title: Mapped[str] = mapped_column(String(500))
+    scenario_md: Mapped[str | None] = mapped_column(Text, nullable=True)
+    point_value: Mapped[int] = mapped_column(Integer, default=10)
+    expected_response_md: Mapped[str | None] = mapped_column(Text, nullable=True)
+    inject_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("inject.id", ondelete="SET NULL"), nullable=True
+    )
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

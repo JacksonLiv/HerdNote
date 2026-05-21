@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import JSON, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, uuid_pk
@@ -30,6 +30,7 @@ class Workstream(Base):
     name: Mapped[str] = mapped_column(String(120))
     kind: Mapped[str] = mapped_column(String(24), default="other")
     description_md: Mapped[str | None] = mapped_column(Text, nullable=True)
+    meta: Mapped[dict] = mapped_column(JSON, default=dict)
 
     engagement: Mapped["Engagement"] = relationship(back_populates="workstreams")
     assignments: Mapped[list["WorkstreamAssignment"]] = relationship(

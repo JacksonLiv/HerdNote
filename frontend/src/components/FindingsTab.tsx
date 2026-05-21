@@ -23,6 +23,7 @@ import {
   IconBook,
   IconPaperclip,
   IconPlus,
+  IconSearch,
   IconTrash,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -309,16 +310,30 @@ function FindingEditor({
 
 function LibraryModal({
   eid,
+  workstreamId,
+  workstreamKind,
   onClose,
   onUsed,
 }: {
   eid: string;
+  workstreamId?: string;
+  workstreamKind?: string;
   onClose: () => void;
   onUsed: (f: Finding) => void;
 }) {
   const qc = useQueryClient();
-  const tpls = useQuery({ queryKey: ["templates"], queryFn: listTemplates });
+  const tpls = useQuery({
+    queryKey: ["templates", workstreamKind ?? "all"],
+    queryFn: () => listTemplates(workstreamKind),
+  });
+  const [search, setSearch] = useState("");
   const [showNew, newCtl] = useDisclosure(false);
+
+  const filtered = (tpls.data ?? []).filter((t) =>
+    search.trim() === "" ||
+    t.name.toLowerCase().includes(search.toLowerCase()) ||
+    (t.category ?? "").toLowerCase().includes(search.toLowerCase())
+  );
   const [t, setT] = useState({
     name: "",
     finding_type: "",
@@ -359,6 +374,7 @@ function LibraryModal({
       return createFinding(eid, {
         title: tpl?.name ?? "Finding",
         template_id: tplId,
+        workstream_id: workstreamId ?? null,
       });
     },
     onSuccess: (f) => {
@@ -453,13 +469,20 @@ function LibraryModal({
           </Stack>
         </Collapse>
 
+        <TextInput
+          placeholder="Search templates…"
+          leftSection={<IconSearch size={14} />}
+          value={search}
+          onChange={(e) => setSearch(e.currentTarget.value)}
+        />
+
         {tpls.isLoading && <Loader />}
-        {tpls.data?.length === 0 && (
+        {!tpls.isLoading && filtered.length === 0 && (
           <Text c="dimmed" size="sm">
-            Library is empty.
+            {search.trim() ? "No templates match your search." : "Library is empty."}
           </Text>
         )}
-        {tpls.data?.map((tpl) => (
+        {filtered.map((tpl) => (
           <Group key={tpl.id} justify="space-between" wrap="nowrap">
             <div>
               <Text fw={600} size="sm">
@@ -500,10 +523,12 @@ export function FindingsTab({
   eid,
   workstreams,
   workstreamId,
+  workstreamKind,
 }: {
   eid: string;
   workstreams: Workstream[];
   workstreamId?: string;
+  workstreamKind?: string;
 }) {
   const qc = useQueryClient();
   const q = useQuery({
@@ -775,6 +800,8 @@ export function FindingsTab({
       {libOpen && (
         <LibraryModal
           eid={eid}
+          workstreamId={workstreamId}
+          workstreamKind={workstreamKind}
           onClose={libCtl.close}
           onUsed={(f) => {
             libCtl.close();

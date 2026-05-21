@@ -76,6 +76,15 @@ const adCatalog: PlaybookKindCatalog = {
         T("ad.foothold.sysvol", "Exposed creds in SYSVOL / GPP", "Look for cpassword in Group Policy Preferences."),
         T("ad.foothold.gmsa", "gMSA readable passwords"),
         T("ad.foothold.prewin2k", "Pre-Windows 2000 compat accounts"),
+        T("ad.foothold.spray", "Password spray (domain)", "Mind lockout thresholds. Use kerbrute or spray-ad.", {
+          title: "Spray results",
+          fields: [
+            { key: "tool", label: "Tool", type: "text" },
+            { key: "userlist", label: "Userlist size", type: "number" },
+            { key: "password", label: "Password tried", type: "text" },
+            { key: "hits", label: "Hits (user:pass)", type: "longtext" },
+          ],
+        }),
       ],
     },
     {
@@ -102,6 +111,14 @@ const adCatalog: PlaybookKindCatalog = {
         }),
         T("ad.enum.acl", "ACL review (PowerView / BloodHound)"),
         T("ad.enum.laps", "LAPS readers"),
+        T("ad.enum.gpo_abuse", "GPO abuse (GPMC / PowerView)", "Look for write rights on GPO objects that apply to high-value OUs.", {
+          title: "Abusable GPO",
+          fields: [
+            { key: "gpo", label: "GPO name", type: "text" },
+            { key: "applies_to", label: "Applies to (OU/scope)", type: "text" },
+            { key: "right", label: "Right you have", type: "text" },
+          ],
+        }),
       ],
     },
     {
@@ -145,6 +162,14 @@ const adCatalog: PlaybookKindCatalog = {
         T("ad.da.silver", "Silver ticket"),
         T("ad.da.adminsdholder", "AdminSDHolder ACL"),
         T("ad.da.targeted_kerberoast", "Targeted Kerberoast on DA service"),
+        T("ad.da.ntds", "NTDS.dit acquisition", "secretsdump / NTDSUTIL / VSS shadow copy dump.", {
+          title: "NTDS dump",
+          fields: [
+            { key: "method", label: "Method", type: "select", options: ["secretsdump", "NTDSUTIL", "VSS", "other"] },
+            { key: "dc", label: "DC targeted", type: "text" },
+            { key: "count", label: "Hashes extracted", type: "number" },
+          ],
+        }),
       ],
     },
     {
@@ -344,10 +369,54 @@ const webCatalog: PlaybookKindCatalog = {
       key: "web.api",
       label: "API specifics",
       tasks: [
-        T("web.api.graphql", "GraphQL introspection / batching"),
+        T("web.api.graphql", "GraphQL introspection / batching", undefined, {
+          title: "GraphQL finding",
+          fields: [
+            { key: "endpoint", label: "GraphQL endpoint", type: "text" },
+            { key: "introspection", label: "Introspection enabled?", type: "checkbox" },
+            { key: "batching", label: "Batching abuse?", type: "checkbox" },
+            { key: "finding", label: "What was found", type: "longtext" },
+          ],
+        }),
         T("web.api.mass_assign", "Mass assignment"),
         T("web.api.ratelimit", "Missing rate limit"),
         T("web.api.errors", "Verbose errors / stack traces"),
+        T("web.api.websocket", "WebSocket security", "Test WS auth, message injection, CSWSH.", {
+          title: "WebSocket finding",
+          fields: [
+            { key: "endpoint", label: "WS endpoint", type: "text" },
+            { key: "auth", label: "Auth mechanism", type: "text" },
+            { key: "finding", label: "Finding", type: "longtext" },
+          ],
+        }),
+      ],
+    },
+    {
+      key: "web.headers",
+      label: "Security Headers & Config",
+      tasks: [
+        T("web.headers.csp", "Content-Security-Policy review"),
+        T("web.headers.hsts", "HSTS missing / short maxage"),
+        T("web.headers.xfo", "X-Frame-Options / clickjacking"),
+        T("web.headers.cache", "Sensitive data in cache-control"),
+        T("web.headers.server", "Server / X-Powered-By disclosure"),
+        T("web.headers.cookies", "Cookie flags (Secure / HttpOnly / SameSite)"),
+      ],
+    },
+    {
+      key: "web.mfa",
+      label: "MFA Bypass",
+      tasks: [
+        T("web.mfa.fatigue", "Push notification fatigue"),
+        T("web.mfa.otp_brute", "OTP brute / rate limit missing"),
+        T("web.mfa.backup_codes", "Backup codes guessable / exposed"),
+        T("web.mfa.evilginx", "Reverse proxy (EvilGinx / Modlishka)", undefined, {
+          title: "MFA bypass",
+          fields: [
+            { key: "target", label: "Target app", type: "text" },
+            { key: "session", label: "Session token captured", type: "checkbox" },
+          ],
+        }),
       ],
     },
   ],
@@ -377,6 +446,14 @@ const externalCatalog: PlaybookKindCatalog = {
         }),
         T("ext.osint.tech", "Tech stack from job postings"),
         T("ext.osint.github", "GitHub org secrets / leaks"),
+        T("ext.osint.shodan", "Shodan / Censys / FOFA recon", "Search for org's exposed assets by ASN, org name, SSL cert.", {
+          title: "Shodan hit",
+          fields: [
+            { key: "query", label: "Query used", type: "text" },
+            { key: "host", label: "Host / IP", type: "text" },
+            { key: "finding", label: "Interesting finding", type: "longtext" },
+          ],
+        }),
       ],
     },
     {
@@ -411,6 +488,22 @@ const externalCatalog: PlaybookKindCatalog = {
         }),
         T("ext.services.admin", "Exposed admin panels"),
         T("ext.services.devstaging", "Exposed dev / staging"),
+        T("ext.services.ssl_tls", "SSL/TLS audit (testssl.sh / sslyze)", "Check for weak ciphers, expired/self-signed certs, legacy protocols.", {
+          title: "TLS issue",
+          fields: [
+            { key: "host", label: "Host", type: "text" },
+            { key: "issue", label: "Issue found", type: "text" },
+            { key: "protocol", label: "Protocol / cipher", type: "text" },
+          ],
+        }),
+        T("ext.services.portal", "Exposed auth portals (VPN / OWA / Citrix / RD Web)", "Inventory any externally reachable login pages.", {
+          title: "Portal",
+          fields: [
+            { key: "url", label: "URL", type: "text" },
+            { key: "type", label: "Type (VPN / OWA / ...)", type: "text" },
+            { key: "mfa", label: "MFA enforced?", type: "checkbox" },
+          ],
+        }),
       ],
     },
     {
@@ -489,6 +582,24 @@ const internalCatalog: PlaybookKindCatalog = {
       ],
     },
     {
+      key: "int.coerce",
+      label: "Coerce Attacks",
+      tasks: [
+        T("int.coerce.petitpotam", "PetitPotam (EfsRpcOpenFileRaw)", "Triggers machine auth from target DC/server.", {
+          title: "PetitPotam coerce",
+          fields: [
+            { key: "target", label: "Target host", type: "text" },
+            { key: "listener", label: "Responder / relay listener", type: "text" },
+            { key: "captured", label: "Hash / session captured?", type: "checkbox" },
+          ],
+        }),
+        T("int.coerce.printerbug", "PrinterBug (SpoolSS)", "SpoolSS RPC triggers auth from print spooler service."),
+        T("int.coerce.dfscerce", "DFSCoerce (NetrDfsRemoveStaleEntries)"),
+        T("int.coerce.shadowcoerce", "ShadowCoerce"),
+        T("int.coerce.drop_the_mic", "Drop the MIC / CVE-2019-1040"),
+      ],
+    },
+    {
       key: "int.relay",
       label: "Relay Attacks",
       tasks: [
@@ -519,6 +630,29 @@ const internalCatalog: PlaybookKindCatalog = {
           ],
         }),
         T("int.creds.spray", "Password spray (mind lockout)"),
+      ],
+    },
+    {
+      key: "int.dpapi",
+      label: "DPAPI & Legacy Misconfigs",
+      tasks: [
+        T("int.dpapi.masterkeys", "DPAPI master key extraction", "mimikatz sekurlsa::dpapi or dpapi.py.", {
+          title: "DPAPI secrets",
+          fields: [
+            { key: "host", label: "Host", type: "text" },
+            { key: "secrets", label: "Secrets found", type: "longtext" },
+          ],
+        }),
+        T("int.dpapi.browser", "Browser credential extraction (DPAPI)"),
+        T("int.gpp.cpassword", "GPP cpassword in SYSVOL", "Look for cpassword in Groups.xml / Services.xml etc.", {
+          title: "GPP cpassword",
+          fields: [
+            { key: "file", label: "GPP file path", type: "text" },
+            { key: "user", label: "Username", type: "text" },
+            { key: "decrypted", label: "Decrypted password", type: "text" },
+          ],
+        }),
+        T("int.service_acct", "Service account hunting (SPN hunting)", "Find service accounts with weak passwords via Kerberoast."),
       ],
     },
     {
@@ -603,6 +737,37 @@ const wirelessCatalog: PlaybookKindCatalog = {
           fields: [
             { key: "ssid", label: "SSID", type: "text" },
             { key: "psk", label: "PSK", type: "text" },
+          ],
+        }),
+      ],
+    },
+    {
+      key: "wifi.wps",
+      label: "WPS Attacks",
+      tasks: [
+        T("wifi.wps.pixiedust", "Pixie-Dust attack", "Works on routers with weak RNG (reaver --pixie-dust).", {
+          title: "Pixie-Dust result",
+          fields: [
+            { key: "ssid", label: "SSID", type: "text" },
+            { key: "bssid", label: "BSSID", type: "text" },
+            { key: "psk", label: "Recovered PSK", type: "text" },
+            { key: "pin", label: "WPS PIN", type: "text" },
+          ],
+        }),
+        T("wifi.wps.bruteforce", "WPS PIN brute force (Reaver)", undefined, {
+          title: "WPS brute",
+          fields: [
+            { key: "ssid", label: "SSID", type: "text" },
+            { key: "bssid", label: "BSSID", type: "text" },
+            { key: "progress", label: "Progress / result", type: "text" },
+          ],
+        }),
+        T("wifi.wps.pmkid_clientless", "PMKID clientless attack (hcxdumptool)", "No client required — capture PMKID beacon.", {
+          title: "PMKID clientless",
+          fields: [
+            { key: "ssid", label: "SSID", type: "text" },
+            { key: "pmkid", label: "PMKID", type: "longtext" },
+            { key: "cracked", label: "Cracked PSK", type: "text" },
           ],
         }),
       ],

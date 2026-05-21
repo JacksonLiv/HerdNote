@@ -8,7 +8,7 @@ import {
   Text,
   UnstyledButton,
 } from "@mantine/core";
-import { IconLogout, IconShieldLock } from "@tabler/icons-react";
+import { IconBrandDiscord, IconLogout, IconShieldLock, IconUser } from "@tabler/icons-react";
 import { Outlet, useNavigate } from "react-router-dom";
 
 import logo from "../assets/logo.jpg";
@@ -49,14 +49,33 @@ export function AppShell() {
               </UnstyledButton>
             </Menu.Target>
             <Menu.Dropdown>
+              <Menu.Item
+                leftSection={<IconUser size={16} />}
+                onClick={() => navigate("/account")}
+              >
+                Account
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconBrandDiscord size={16} color={user?.discord_webhook_url ? "#5865F2" : undefined} />}
+                onClick={() => navigate("/account")}
+                rightSection={!user?.discord_webhook_url ? (
+                  <Badge size="xs" color="orange">not set</Badge>
+                ) : undefined}
+              >
+                Discord alerts
+              </Menu.Item>
               {user?.role === "admin" && (
-                <Menu.Item
-                  leftSection={<IconShieldLock size={16} />}
-                  onClick={() => navigate("/admin")}
-                >
-                  Admin
-                </Menu.Item>
+                <>
+                  <Menu.Divider />
+                  <Menu.Item
+                    leftSection={<IconShieldLock size={16} />}
+                    onClick={() => navigate("/admin")}
+                  >
+                    Admin
+                  </Menu.Item>
+                </>
               )}
+              <Menu.Divider />
               <Menu.Item
                 leftSection={<IconLogout size={16} />}
                 onClick={async () => {

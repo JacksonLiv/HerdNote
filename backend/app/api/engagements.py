@@ -67,6 +67,7 @@ async def _serialize(db: AsyncSession, eng: Engagement) -> EngagementOut:
                 name=ws.name,
                 kind=ws.kind,
                 description_md=ws.description_md,
+                meta=ws.meta or {},
                 assignees=assignees,  # type: ignore[arg-type]
             )
         )
@@ -202,6 +203,37 @@ async def add_workstream(
             engagement_id=engagement_id, name=payload.name, kind=payload.kind
         )
     )
+    await db.commit()
+    return await _serialize(db, await _load_full(db, engagement_id))
+
+
+class _WsPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    description_md: str | None = None
+    meta: dict | None = None
+
+
+@router.patch(
+    "/{engagement_id}/workstreams/{ws_id}",
+    response_model=EngagementOut,
+    dependencies=[Depends(verify_csrf)],
+)
+async def patch_workstream(
+    engagement_id: uuid.UUID,
+    ws_id: uuid.UUID,
+    payload: _WsPatch,
+    eng: Engagement = Depends(require_membership),
+    db: AsyncSession = Depends(get_db),
+) -> EngagementOut:
+    ws = await db.get(Workstream, ws_id)
+    if ws is None or ws.engagement_id != engagement_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Workstream not found")
+    if payload.name is not None:
+        ws.name = payload.name
+    if payload.description_md is not None:
+        ws.description_md = payload.description_md
+    if payload.meta is not None:
+        ws.meta = {**(ws.meta or {}), **payload.meta}
     await db.commit()
     return await _serialize(db, await _load_full(db, engagement_id))
 

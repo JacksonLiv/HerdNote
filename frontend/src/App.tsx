@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppShell } from "./components/AppShell";
 import { useAuth } from "./auth/AuthContext";
+import { AccountPage } from "./pages/AccountPage";
 import { AdminPage } from "./pages/AdminPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { EngagementPage } from "./pages/EngagementPage";
@@ -27,6 +28,7 @@ export function App() {
       <Route element={<AppShell />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/new" element={<WizardPage />} />
+        <Route path="/account" element={<AccountPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/engagements/:id" element={<EngagementPage />} />
         <Route

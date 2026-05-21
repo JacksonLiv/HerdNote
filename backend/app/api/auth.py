@@ -1,3 +1,4 @@
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +17,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.user import User
-from app.schemas.auth import LoginIn, MeOut, RegisterIn, UserOut
+from app.schemas.auth import LoginIn, MeOut, ProfileUpdate, RegisterIn, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -121,3 +122,48 @@ async def me(response: Response, user: User = Depends(get_current_user)) -> dict
     # Refresh the cookie so an active session keeps a fresh CSRF token.
     csrf = _set_session_cookie(response, str(user.id))
     return {**UserOut.model_validate(user).model_dump(), "csrf_token": csrf}
+
+
+@router.patch(
+    "/me",
+    response_model=MeOut,
+    dependencies=[Depends(verify_csrf)],
+)
+async def update_profile(
+    payload: ProfileUpdate,
+    response: Response,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    data = payload.model_dump(exclude_unset=True)
+    for field, value in data.items():
+        setattr(user, field, value)
+    await db.commit()
+    await db.refresh(user)
+    csrf = _set_session_cookie(response, str(user.id))
+    return {**UserOut.model_validate(user).model_dump(), "csrf_token": csrf}
+
+
+@router.post(
+    "/me/test-discord",
+    dependencies=[Depends(verify_csrf)],
+)
+async def test_discord_webhook(
+    user: User = Depends(get_current_user),
+) -> dict:
+    if not user.discord_webhook_url:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No webhook URL configured")
+    payload = {
+        "embeds": [{
+            "title": "✅ HerdNote webhook test",
+            "description": f"Hey {user.display_name}! Your Discord webhook is wired up correctly. You'll receive new credential notifications here.",
+            "color": 0x2ECC71,
+        }]
+    }
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.post(user.discord_webhook_url, json=payload)
+            r.raise_for_status()
+    except Exception as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Discord returned an error: {exc}") from exc
+    return {"ok": True}

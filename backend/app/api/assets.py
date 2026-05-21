@@ -49,7 +49,9 @@ def _out(a: Asset) -> AssetOut:
         state=a.state,
         tags=a.tags or [],
         notes_md=a.notes_md,
+        meta=a.meta or {},
         owner_op=a.owner_op,
+        parent_id=a.parent_id,
         created_at=a.created_at,
         updated_at=a.updated_at,
     )
@@ -130,7 +132,10 @@ async def create_asset(
         identifier=payload.identifier,
         os=payload.os,
         in_scope=payload.in_scope,
+        meta=payload.meta or {},
+        notes_md=payload.notes_md,
         owner_op=user.id,
+        parent_id=payload.parent_id,
     )
     asset.workstreams = await _resolve_ws(db, engagement_id, payload.workstream_ids)
     db.add(asset)

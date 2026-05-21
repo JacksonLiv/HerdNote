@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.deps import get_current_user, require_engagement, verify_csrf
-from app.models.inject import Inject, InjectTemplate
+from app.models.inject import Inject, InjectTemplate, MSELEntry
 from app.models.user import User
 from app.models.workstream import Workstream
 from app.schemas.inject import (
@@ -17,6 +17,9 @@ from app.schemas.inject import (
     InjectTemplateOut,
     InjectTemplateUpdate,
     InjectUpdate,
+    MSELCreate,
+    MSELOut,
+    MSELUpdate,
 )
 
 injects_router = APIRouter(
@@ -26,6 +29,11 @@ injects_router = APIRouter(
 )
 templates_router = APIRouter(
     prefix="/engagements/{engagement_id}/inject-templates",
+    tags=["inject"],
+    dependencies=[Depends(require_engagement)],
+)
+msel_router = APIRouter(
+    prefix="/engagements/{engagement_id}/msel",
     tags=["inject"],
     dependencies=[Depends(require_engagement)],
 )
@@ -258,4 +266,73 @@ async def delete_template(
     if tpl is None or tpl.engagement_id not in (engagement_id, None):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Template not found")
     await db.delete(tpl)
+    await db.commit()
+
+
+# ── MSEL ─────────────────────────────────────────────────────────────────────
+
+
+@msel_router.get("", response_model=list[MSELOut])
+async def list_msel(
+    engagement_id: uuid.UUID,
+    workstream_id: uuid.UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> list[MSELOut]:
+    q = select(MSELEntry).where(MSELEntry.engagement_id == engagement_id)
+    if workstream_id is not None:
+        q = q.where(MSELEntry.workstream_id == workstream_id)
+    rows = list(await db.scalars(q.order_by(MSELEntry.inject_number)))
+    return [MSELOut.model_validate(r) for r in rows]
+
+
+@msel_router.post(
+    "",
+    response_model=MSELOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_csrf)],
+)
+async def create_msel_entry(
+    engagement_id: uuid.UUID,
+    payload: MSELCreate,
+    db: AsyncSession = Depends(get_db),
+) -> MSELOut:
+    entry = MSELEntry(engagement_id=engagement_id, **payload.model_dump())
+    db.add(entry)
+    await db.commit()
+    await db.refresh(entry)
+    return MSELOut.model_validate(entry)
+
+
+@msel_router.patch(
+    "/{entry_id}",
+    response_model=MSELOut,
+    dependencies=[Depends(verify_csrf)],
+)
+async def update_msel_entry(
+    engagement_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    payload: MSELUpdate,
+    db: AsyncSession = Depends(get_db),
+) -> MSELOut:
+    entry = await db.get(MSELEntry, entry_id)
+    if entry is None or entry.engagement_id != engagement_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "MSEL entry not found")
+    for f, v in payload.model_dump(exclude_unset=True).items():
+        setattr(entry, f, v)
+    await db.commit()
+    await db.refresh(entry)
+    return MSELOut.model_validate(entry)
+
+
+@msel_router.delete("/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_msel_entry(
+    engagement_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    _: None = Depends(verify_csrf),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    entry = await db.get(MSELEntry, entry_id)
+    if entry is None or entry.engagement_id != engagement_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "MSEL entry not found")
+    await db.delete(entry)
     await db.commit()
