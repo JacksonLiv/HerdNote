@@ -163,6 +163,7 @@ async def generate_report(
 
     # Load full engagement with members for context fields.
     from app.models.client import Client
+    from app.models.evidence import Evidence
     from app.models.user import User
 
     full_eng = await db.scalar(
@@ -192,6 +193,15 @@ async def generate_report(
             .options(selectinload(Client.contacts))
         )
 
+    # Build evidence map: str(ev_id) → stored_path, for embedding images in the DOCX.
+    evidence_rows = await db.scalars(
+        select(Evidence).where(
+            Evidence.engagement_id == engagement_id,
+            Evidence.content_type.like("image/%"),
+        )
+    )
+    evidence_map: dict[str, str] = {str(ev.id): ev.stored_path for ev in evidence_rows}
+
     try:
         docx_bytes = await build_report(
             engagement=full_eng,
@@ -199,6 +209,7 @@ async def generate_report(
             findings=findings,
             client=client,
             users=users,
+            evidence_map=evidence_map,
         )
     except RuntimeError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc

@@ -29,7 +29,7 @@ import {
   IconUpload,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -123,10 +123,15 @@ export function FindingEditorPage() {
   const [draft, setDraft] = useState<Partial<Finding> & { title: string }>({ title: "" });
   const [initialized, setInitialized] = useState(false);
 
-  if (finding && !initialized) {
-    setDraft({ ...finding });
-    setInitialized(true);
-  }
+  // Initialize draft once the finding loads. Using useEffect guarantees the
+  // CvssCalculator always mounts with the real cvss_vector (never with null).
+  useEffect(() => {
+    if (finding && !initialized) {
+      setDraft({ ...finding });
+      setInitialized(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finding, initialized]);
 
   // Track which MarkdownTextarea was last focused for image insertion.
   // Store the RefObject (not the handle value) so we always get the latest

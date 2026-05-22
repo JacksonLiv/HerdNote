@@ -58,8 +58,20 @@ import {
   type EngagementReport,
   type Finding,
 } from "../api/client";
+import { computeCvss, parseVector } from "../lib/cvss";
 import { GhostwriterExportModal } from "./GhostwriterExportModal";
 import { SEVERITY_COLOR } from "../theme";
+
+const SEVERITY_SORT_SCORE: Record<string, number> = {
+  critical: 9.5, high: 7.5, medium: 5.0, low: 2.5, informational: 0.1,
+};
+
+/** Effective CVSS score for sorting: stored → computed from vector → severity fallback. */
+function effectiveCvss(f: Finding): number {
+  if (f.cvss_score && f.cvss_score > 0) return f.cvss_score;
+  if (f.cvss_vector) return computeCvss(parseVector(f.cvss_vector)).score;
+  return SEVERITY_SORT_SCORE[(f.severity || "informational").toLowerCase()] ?? 0;
+}
 
 type Section =
   | "template"
@@ -600,7 +612,7 @@ function FindingsSection({
     if (autoSorted || findingsQ.isLoading || findings.length === 0) return;
     if (selectedIds.length === 0) {
       const sorted = [...findings]
-        .sort((a, b) => (b.cvss_score ?? 0) - (a.cvss_score ?? 0))
+        .sort((a, b) => effectiveCvss(b) - effectiveCvss(a))
         .map((f) => f.id);
       setLocalIds(sorted);
     }
@@ -632,7 +644,7 @@ function FindingsSection({
         .map((id) => findings.find((f) => f.id === id))
         .filter(Boolean) as Finding[];
       return selected
-        .sort((a, b) => (b.cvss_score ?? 0) - (a.cvss_score ?? 0))
+        .sort((a, b) => effectiveCvss(b) - effectiveCvss(a))
         .map((f) => f.id);
     });
   };
@@ -770,9 +782,9 @@ function FindingRow({
       >
         {finding.severity}
       </Badge>
-      {finding.cvss_score != null && (
+      {(finding.cvss_score != null || finding.cvss_vector) && (
         <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-          {finding.cvss_score.toFixed(1)}
+          {effectiveCvss(finding).toFixed(1)}
         </Text>
       )}
       <Text size="sm" style={{ flex: 1 }}>
