@@ -55,6 +55,7 @@ import {
   useDefaultReportTemplate,
   type AppendixItem,
   type Engagement,
+  type EngagementReport,
   type Finding,
 } from "../api/client";
 import { GhostwriterExportModal } from "./GhostwriterExportModal";
@@ -159,20 +160,22 @@ export function PostEngagementView({
         {section === "summary" && (
           <MarkdownSection
             title="Executive Summary"
-            description="Written overview of the engagement for non-technical stakeholders. This section is inserted directly into the report."
+            description="Written for non-technical stakeholders. Lead with business risk, not technical detail. Aim for 200–400 words. Inserted directly into the report as {{ exec_summary }}."
             value={report?.exec_summary_md ?? ""}
             onSave={(v) => save.mutate({ exec_summary_md: v })}
             saving={save.isPending}
+            placeholder={EXEC_SUMMARY_PLACEHOLDER}
           />
         )}
 
         {section === "recommendations" && (
           <MarkdownSection
             title="High-Level Recommendations"
-            description="Strategic recommendations based on findings. Supports markdown formatting."
+            description="Strategic, prioritised recommendations based on findings. Frame in business terms. Inserted into the report as {{ recommendations }}."
             value={report?.recommendations_md ?? ""}
             onSave={(v) => save.mutate({ recommendations_md: v })}
             saving={save.isPending}
+            placeholder={RECOMMENDATIONS_PLACEHOLDER}
           />
         )}
 
@@ -300,47 +303,118 @@ function TemplateSection({
   );
 }
 
+type PlaceholderGroup = {
+  heading: string;
+  rows: [string, string][];
+};
+
 function PlaceholderTable() {
-  const rows = [
-    ["{{ client_name }}", "Full client organization name"],
-    ["{{ client_short_name }}", "Client short name"],
-    ["{{ engagement_name }}", "Engagement name"],
-    ["{{ engagement_type }}", "pentest | redteam | ..."],
-    ["{{ start_date }}", "Engagement start date"],
-    ["{{ end_date }}", "Engagement end date"],
-    ["{{ scope }}", "Scope text"],
-    ["{{ roe }}", "Rules of engagement text"],
-    ["{{ exec_summary }}", "Executive summary"],
-    ["{{ recommendations }}", "High-level recommendations"],
-    ["{% for c in contacts %}...{% endfor %}", "Iterate contacts (c.name, c.role, c.email, c.phone)"],
-    ["{% for m in team %}...{% endfor %}", "Iterate team members (m.role)"],
-    ["{% for f in findings %}...{% endfor %}", "Iterate findings (f.title, f.severity, f.cvss_score, f.description, f.impact, f.reproduction, f.remediation, f.references, f.affected_assets)"],
-    ["{% for a in appendixes %}...{% endfor %}", "Iterate appendixes (a.title, a.content)"],
+  const groups: PlaceholderGroup[] = [
+    {
+      heading: "Client & Engagement",
+      rows: [
+        ["{{ client_name }}", "Full client organisation name"],
+        ["{{ client_short_name }}", "Client short name (falls back to client_name)"],
+        ["{{ engagement_name }}", "Name of the engagement"],
+        ["{{ engagement_type }}", "e.g. pentest, redteam, phishing"],
+        ["{{ engagement_status }}", "planning | active | reporting | closed"],
+        ["{{ start_date }}", "Formatted start date — e.g. May 1, 2026"],
+        ["{{ end_date }}", "Formatted end date — e.g. May 14, 2026"],
+        ["{{ report_date }}", "Date the report was generated — e.g. May 21, 2026"],
+      ],
+    },
+    {
+      heading: "Narrative Sections",
+      rows: [
+        ["{{ scope }}", "Scope text (from Pre-Engagement)"],
+        ["{{ roe }}", "Rules of engagement text"],
+        ["{{ exec_summary }}", "Executive summary narrative"],
+        ["{{ recommendations }}", "High-level strategic recommendations"],
+      ],
+    },
+    {
+      heading: "Finding Statistics",
+      rows: [
+        ["{{ finding_count }}", "Total number of findings included in the report"],
+        ["{{ severity_counts.critical }}", "Count of Critical findings"],
+        ["{{ severity_counts.high }}", "Count of High findings"],
+        ["{{ severity_counts.medium }}", "Count of Medium findings"],
+        ["{{ severity_counts.low }}", "Count of Low findings"],
+        ["{{ severity_counts.informational }}", "Count of Informational findings"],
+      ],
+    },
+    {
+      heading: "Loops",
+      rows: [
+        ["{% for m in team %}…{% endfor %}", "Iterate team members — fields: m.name, m.username, m.role"],
+        ["{% for c in contacts %}…{% endfor %}", "Iterate client contacts — fields: c.name, c.role, c.email, c.phone"],
+        ["{% for f in findings %}…{% endfor %}", "Iterate findings — see Finding Fields below"],
+        ["{% for a in appendixes %}…{% endfor %}", "Iterate appendixes — fields: a.title, a.content"],
+        ["{{ loop.index }}", "1-based loop counter (use inside any for loop)"],
+        ["{% if not loop.last %}, {% endif %}", "Conditional — only when not the last item in a loop"],
+      ],
+    },
+    {
+      heading: "Finding Fields (inside {% for f in findings %} loop)",
+      rows: [
+        ["{{ f.title }}", "Finding title"],
+        ["{{ f.severity }}", "Manually-set severity: critical | high | medium | low | informational"],
+        ["{{ f.severity | upper }}", "Severity in all-caps"],
+        ["{{ f.cvss_score }}", "CVSS base score as formatted string, e.g. '7.8'"],
+        ["{{ f.cvss_vector }}", "Full CVSS v3.1 vector string"],
+        ["{{ f.cvss_severity }}", "Severity derived from CVSS score (may differ from manually-set severity)"],
+        ["{{ f.cwe }}", "CWE identifier, e.g. CWE-79"],
+        ["{{ f.cve }}", "CVE identifier, e.g. CVE-2021-44228"],
+        ["{{ f.status }}", "Writing status: not_done | draft | done"],
+        ["{{ f.tags_str }}", "Comma-separated tag list, e.g. 'web, injection, owasp-a03'"],
+        ["{{ f.tags }}", "Tags as a list (use with {% for t in f.tags %})"],
+        ["{{ f.description }}", "Technical description of the vulnerability"],
+        ["{{ f.impact }}", "Business and technical impact"],
+        ["{{ f.reproduction }}", "Steps to reproduce / proof of concept"],
+        ["{{ f.remediation }}", "Remediation guidance"],
+        ["{{ f.host_detection }}", "Host-based detection guidance"],
+        ["{{ f.network_detection }}", "Network-based detection guidance"],
+        ["{{ f.references }}", "CVEs, advisories, research links"],
+        ["{{ f.affected_assets_str }}", "Comma-joined affected asset identifiers"],
+        ["{{ f.affected_assets }}", "Affected assets as a list (use with {% for a in f.affected_assets %})"],
+      ],
+    },
   ];
 
   return (
-    <ScrollArea>
-      <Table withColumnBorders fz="xs">
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Placeholder</Table.Th>
-            <Table.Th>Value</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {rows.map(([ph, desc]) => (
-            <Table.Tr key={ph}>
-              <Table.Td>
-                <Text ff="monospace" size="xs" c="usfGreen.4">
-                  {ph}
-                </Text>
-              </Table.Td>
-              <Table.Td>{desc}</Table.Td>
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
-    </ScrollArea>
+    <Stack gap="md">
+      {groups.map((group) => (
+        <Box key={group.heading}>
+          <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={4} style={{ letterSpacing: "0.05em" }}>
+            {group.heading}
+          </Text>
+          <ScrollArea>
+            <Table withColumnBorders fz="xs">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th style={{ width: "42%" }}>Placeholder</Table.Th>
+                  <Table.Th>Description</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {group.rows.map(([ph, desc]) => (
+                  <Table.Tr key={ph}>
+                    <Table.Td>
+                      <Text ff="monospace" size="xs" c="usfGreen.4" style={{ whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                        {ph}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="xs">{desc}</Text>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea>
+        </Box>
+      ))}
+    </Stack>
   );
 }
 
@@ -425,27 +499,54 @@ function DataRow({ label, value }: { label: string; value: string }) {
 
 // ─── Markdown Sections ────────────────────────────────────────────────────────
 
+function wordCount(text: string): number {
+  return text.trim() ? text.trim().split(/\s+/).length : 0;
+}
+
+const EXEC_SUMMARY_PLACEHOLDER = `[Opening sentence: state the engagement type, target, and testing window.]
+
+During the period of [START DATE] to [END DATE], [YOUR COMPANY] conducted a [ENGAGEMENT TYPE] assessment of [CLIENT NAME]'s [SYSTEMS/APPLICATIONS]. The assessment identified [N] findings across [N] severity levels, including [N Critical / N High / N Medium / N Low].
+
+[Risk posture paragraph: summarise the overall security posture in 2–3 sentences. Lead with business risk.]
+
+[Critical/High summary: briefly describe the highest-severity issues in plain language — no jargon.]
+
+[Forward-looking close: end with a positive, actionable statement about remediation priorities and the client's path to improved security.]`;
+
+const RECOMMENDATIONS_PLACEHOLDER = `[List your top strategic recommendations, ordered by priority and business impact.]
+
+1. **[CRITICAL] Address [issue]** — [1-2 sentences on what to do and why it matters now.]
+2. **[HIGH] Harden [component]** — [Brief description of the improvement.]
+3. **[MEDIUM] Implement [control]** — [Description.]
+4. **Establish recurring assessment cadence** — Schedule quarterly vulnerability scans and annual penetration tests to maintain visibility into the evolving attack surface.`;
+
 function MarkdownSection({
   title,
   description,
   value,
   onSave,
   saving,
+  placeholder,
 }: {
   title: string;
   description: string;
   value: string;
   onSave: (v: string) => void;
   saving: boolean;
+  placeholder?: string;
 }) {
   const [draft, setDraft] = useState(value);
   const dirty = draft !== value;
+  const words = wordCount(draft);
 
   return (
     <Card withBorder padding="lg">
-      <Title order={4} mb="xs">
-        {title}
-      </Title>
+      <Group justify="space-between" mb="xs" align="flex-start">
+        <Title order={4}>{title}</Title>
+        <Text size="xs" c={words === 0 ? "red" : words < 50 ? "yellow" : "dimmed"}>
+          {words} {words === 1 ? "word" : "words"}
+        </Text>
+      </Group>
       <Text size="sm" c="dimmed" mb="md">
         {description}
       </Text>
@@ -454,7 +555,7 @@ function MarkdownSection({
         autosize
         value={draft}
         onChange={(e) => setDraft(e.currentTarget.value)}
-        placeholder="Write in markdown..."
+        placeholder={placeholder ?? "Write in markdown…"}
         styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
       />
       <Group justify="flex-end" mt="md">
@@ -926,13 +1027,36 @@ function CustomAppendixModal({
 
 // ─── Generate Section ─────────────────────────────────────────────────────────
 
+type ChecklistItemProps = {
+  ok: boolean;
+  warn?: boolean;
+  label: string;
+  detail: string;
+};
+
+function ChecklistItem({ ok, warn, label, detail }: ChecklistItemProps) {
+  const color = ok ? "usfGreen" : warn ? "yellow" : "red";
+  const symbol = ok ? "✓" : warn ? "~" : "✗";
+  return (
+    <Group gap="sm" align="flex-start">
+      <Text size="sm" fw={700} c={color} style={{ width: 16, flexShrink: 0 }}>
+        {symbol}
+      </Text>
+      <Box>
+        <Text size="sm" fw={500}>{label}</Text>
+        <Text size="xs" c="dimmed">{detail}</Text>
+      </Box>
+    </Group>
+  );
+}
+
 function GenerateSection({
   engagement,
   report,
   onJsonDownload,
 }: {
   engagement: Engagement;
-  report: { template_file_path: string | null; selected_finding_ids: string[] } | null;
+  report: EngagementReport | null;
   onJsonDownload: () => void;
 }) {
   const [gwOpen, { open: openGw, close: closeGw }] = useDisclosure(false);
@@ -956,6 +1080,15 @@ function GenerateSection({
 
   const hasTemplate = !!report?.template_file_path;
   const findingCount = report?.selected_finding_ids.length ?? 0;
+  const execWords = wordCount(report?.exec_summary_md ?? "");
+  const recWords = wordCount(report?.recommendations_md ?? "");
+  const appendixConfig: AppendixItem[] =
+    report?.appendix_config && report.appendix_config.length > 0
+      ? (report.appendix_config as AppendixItem[])
+      : DEFAULT_APPENDIXES;
+  const includedAppendixes = appendixConfig.filter((a) => a.included).length;
+
+  const readyToGenerate = hasTemplate && findingCount > 0 && execWords >= 50;
 
   return (
     <Card withBorder padding="lg">
@@ -963,22 +1096,45 @@ function GenerateSection({
         Generate Report
       </Title>
       <Text size="sm" c="dimmed" mb="lg">
-        Generate a <code>.docx</code> report using the uploaded template and the data you've
-        configured above.
+        Review the pre-flight checklist, then generate a <code>.docx</code> report from your template and configured data.
       </Text>
 
-      <Stack gap="xs" mb="xl">
-        <Group gap="xs">
-          <Badge color={hasTemplate ? "usfGreen" : "red"} variant="light">
-            {hasTemplate ? "Template uploaded" : "No template uploaded"}
-          </Badge>
-        </Group>
-        <Group gap="xs">
-          <Badge color={findingCount > 0 ? "usfGreen" : "gray"} variant="light">
-            {findingCount} finding{findingCount !== 1 ? "s" : ""} selected
-          </Badge>
-        </Group>
-      </Stack>
+      {/* Pre-flight checklist */}
+      <Card withBorder padding="md" bg="dark.8" mb="xl">
+        <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb="sm" style={{ letterSpacing: "0.06em" }}>
+          Pre-Flight Checklist
+        </Text>
+        <Stack gap="xs">
+          <ChecklistItem
+            ok={hasTemplate}
+            label="Template"
+            detail={hasTemplate ? `${report!.template_file_path!.split("/").pop()} is loaded` : "No template — load the default or upload a .docx in the Template section"}
+          />
+          <ChecklistItem
+            ok={execWords >= 50}
+            warn={execWords > 0 && execWords < 50}
+            label="Executive Summary"
+            detail={execWords === 0 ? "Not written — add content in Executive Summary" : `${execWords} words${execWords < 50 ? " (aim for 200–400)" : ""}`}
+          />
+          <ChecklistItem
+            ok={recWords >= 20}
+            warn={recWords > 0 && recWords < 20}
+            label="Recommendations"
+            detail={recWords === 0 ? "Not written — add content in Recommendations" : `${recWords} words`}
+          />
+          <ChecklistItem
+            ok={findingCount > 0}
+            label="Technical Findings"
+            detail={findingCount === 0 ? "No findings selected — select findings in Technical Findings" : `${findingCount} finding${findingCount !== 1 ? "s" : ""} included`}
+          />
+          <ChecklistItem
+            ok
+            warn={includedAppendixes === 0}
+            label="Appendixes"
+            detail={includedAppendixes === 0 ? "None included (optional)" : `${includedAppendixes} appendix${includedAppendixes !== 1 ? "es" : ""} included`}
+          />
+        </Stack>
+      </Card>
 
       <Button
         size="lg"
@@ -989,6 +1145,7 @@ function GenerateSection({
         onClick={() => generate.mutate()}
         mb="md"
         fullWidth
+        variant={readyToGenerate ? "filled" : "light"}
       >
         Generate Report (.docx)
       </Button>

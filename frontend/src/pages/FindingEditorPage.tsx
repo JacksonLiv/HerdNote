@@ -10,6 +10,7 @@ import {
   Image,
   Loader,
   MultiSelect,
+  Progress,
   ScrollArea,
   Select,
   Stack,
@@ -46,6 +47,44 @@ import {
 import { CvssCalculator } from "../components/CvssCalculator";
 import { MarkdownTextarea, type MarkdownHandle } from "../components/MarkdownTextarea";
 import { SEVERITY_COLOR } from "../theme";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function mdWordCount(text: string | null | undefined): number {
+  if (!text) return 0;
+  return text.trim() ? text.trim().split(/\s+/).length : 0;
+}
+
+/** Compact word count badge shown under markdown textareas. */
+function FieldWordCount({ text }: { text: string | null | undefined }) {
+  const n = mdWordCount(text);
+  return (
+    <Text size="xs" c={n === 0 ? "dimmed" : "dimmed"} ta="right" mt={2}>
+      {n} {n === 1 ? "word" : "words"}
+    </Text>
+  );
+}
+
+/** Visual CVSS score bar (0–10). */
+function CvssScoreBar({ score }: { score: number | null | undefined }) {
+  if (score == null) return null;
+  const pct = Math.min(Math.max(score / 10, 0), 1) * 100;
+  const color =
+    score >= 9.0 ? "red" :
+    score >= 7.0 ? "orange" :
+    score >= 4.0 ? "yellow" :
+    score > 0    ? "blue"   : "gray";
+  return (
+    <Box mt={4}>
+      <Progress value={pct} color={color} size="xs" radius="xl" />
+      <Text size="xs" c="dimmed" ta="right" mt={2}>
+        CVSS {score.toFixed(1)} / 10.0
+      </Text>
+    </Box>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const SEVERITIES: Severity[] = ["critical", "high", "medium", "low", "informational"];
 const STATUSES: { value: FindingStatus; label: string }[] = [
@@ -198,7 +237,7 @@ export function FindingEditorPage() {
             <Tabs.List mb="sm">
               <Tabs.Tab value="overview">Overview</Tabs.Tab>
               <Tabs.Tab value="description">Description</Tabs.Tab>
-              <Tabs.Tab value="replication">Replication</Tabs.Tab>
+              <Tabs.Tab value="replication">Steps to Reproduce</Tabs.Tab>
               <Tabs.Tab value="remediation">Remediation</Tabs.Tab>
               <Tabs.Tab value="detection">Detection</Tabs.Tab>
               <Tabs.Tab value="references">References</Tabs.Tab>
@@ -226,12 +265,15 @@ export function FindingEditorPage() {
                     onChange={(v) => set({ status: (v ?? "not_done") as FindingStatus })}
                   />
                 </Group>
-                <CvssCalculator
-                  vector={draft.cvss_vector ?? null}
-                  onChange={({ vector, score, severity }) =>
-                    set({ cvss_vector: vector, cvss_score: score, severity: severity as Severity })
-                  }
-                />
+                <Box>
+                  <CvssCalculator
+                    vector={draft.cvss_vector ?? null}
+                    onChange={({ vector, score, severity }) =>
+                      set({ cvss_vector: vector, cvss_score: score, severity: severity as Severity })
+                    }
+                  />
+                  <CvssScoreBar score={draft.cvss_score ?? finding.cvss_score} />
+                </Box>
                 <Group grow>
                   <Select
                     label="Severity"
@@ -268,70 +310,90 @@ export function FindingEditorPage() {
 
             <Tabs.Panel value="description">
               <Stack gap="sm">
-                <MarkdownTextarea
-                  ref={fieldRefs.description}
-                  label="Description"
-                  description="What is the vulnerability? Click a field then click an evidence image to insert it."
-                  value={draft.description_md ?? ""}
-                  onChange={(v) => set({ description_md: v })}
-                  minRows={6}
-                  onFocus={makeFieldFocusHandler(fieldRefs.description)}
-                />
-                <MarkdownTextarea
-                  ref={fieldRefs.impact}
-                  label="Impact"
-                  description="What is the business / technical impact?"
-                  value={draft.impact_md ?? ""}
-                  onChange={(v) => set({ impact_md: v })}
-                  minRows={4}
-                  onFocus={makeFieldFocusHandler(fieldRefs.impact)}
-                />
+                <Box>
+                  <MarkdownTextarea
+                    ref={fieldRefs.description}
+                    label="Description"
+                    description="What is the vulnerability? Explain it clearly and concisely. Click a field then click an evidence image to insert it."
+                    value={draft.description_md ?? ""}
+                    onChange={(v) => set({ description_md: v })}
+                    minRows={6}
+                    onFocus={makeFieldFocusHandler(fieldRefs.description)}
+                  />
+                  <FieldWordCount text={draft.description_md} />
+                </Box>
+                <Box>
+                  <MarkdownTextarea
+                    ref={fieldRefs.impact}
+                    label="Business Impact"
+                    description="What is the real-world consequence of exploitation? Reference data breach, privilege escalation, compliance, or operational disruption."
+                    value={draft.impact_md ?? ""}
+                    onChange={(v) => set({ impact_md: v })}
+                    minRows={4}
+                    onFocus={makeFieldFocusHandler(fieldRefs.impact)}
+                  />
+                  <FieldWordCount text={draft.impact_md} />
+                </Box>
               </Stack>
             </Tabs.Panel>
 
             <Tabs.Panel value="replication">
-              <MarkdownTextarea
-                ref={fieldRefs.reproduction}
-                label="Replication Steps"
-                description="Step-by-step reproduction. Use code blocks for commands. Click an evidence image to insert it at the cursor."
-                value={draft.reproduction_md ?? ""}
-                onChange={(v) => set({ reproduction_md: v })}
-                minRows={12}
-                placeholder={"1. Navigate to...\n2. Run:\n```\ncommand here\n```\n3. Observe..."}
-                onFocus={makeFieldFocusHandler(fieldRefs.reproduction)}
-              />
+              <Box>
+                <MarkdownTextarea
+                  ref={fieldRefs.reproduction}
+                  label="Steps to Reproduce"
+                  description="Step-by-step proof of concept. Use numbered steps and code blocks for commands. Click an evidence image to insert it at the cursor."
+                  value={draft.reproduction_md ?? ""}
+                  onChange={(v) => set({ reproduction_md: v })}
+                  minRows={12}
+                  placeholder={"1. Navigate to...\n2. Run:\n```\ncommand here\n```\n3. Observe the following response...\n\nExpected result: ...\nActual result: ..."}
+                  onFocus={makeFieldFocusHandler(fieldRefs.reproduction)}
+                />
+                <FieldWordCount text={draft.reproduction_md} />
+              </Box>
             </Tabs.Panel>
 
             <Tabs.Panel value="remediation">
-              <MarkdownTextarea
-                ref={fieldRefs.remediation}
-                label="Remediation"
-                description="How to fix the vulnerability."
-                value={draft.remediation_md ?? ""}
-                onChange={(v) => set({ remediation_md: v })}
-                minRows={8}
-                onFocus={makeFieldFocusHandler(fieldRefs.remediation)}
-              />
+              <Box>
+                <MarkdownTextarea
+                  ref={fieldRefs.remediation}
+                  label="Remediation"
+                  description="Specific, actionable steps to resolve the vulnerability. Reference patch versions, configuration changes, or architectural improvements."
+                  value={draft.remediation_md ?? ""}
+                  onChange={(v) => set({ remediation_md: v })}
+                  minRows={8}
+                  onFocus={makeFieldFocusHandler(fieldRefs.remediation)}
+                />
+                <FieldWordCount text={draft.remediation_md} />
+              </Box>
             </Tabs.Panel>
 
             <Tabs.Panel value="detection">
               <Stack gap="sm">
-                <MarkdownTextarea
-                  ref={fieldRefs.host_detection}
-                  label="Host Detection"
-                  value={draft.host_detection_md ?? ""}
-                  onChange={(v) => set({ host_detection_md: v })}
-                  minRows={4}
-                  onFocus={makeFieldFocusHandler(fieldRefs.host_detection)}
-                />
-                <MarkdownTextarea
-                  ref={fieldRefs.network_detection}
-                  label="Network Detection"
-                  value={draft.network_detection_md ?? ""}
-                  onChange={(v) => set({ network_detection_md: v })}
-                  minRows={4}
-                  onFocus={makeFieldFocusHandler(fieldRefs.network_detection)}
-                />
+                <Box>
+                  <MarkdownTextarea
+                    ref={fieldRefs.host_detection}
+                    label="Host-Based Detection"
+                    description="Indicators of compromise, log signatures, EDR rules, or file-system artefacts that reveal exploitation."
+                    value={draft.host_detection_md ?? ""}
+                    onChange={(v) => set({ host_detection_md: v })}
+                    minRows={4}
+                    onFocus={makeFieldFocusHandler(fieldRefs.host_detection)}
+                  />
+                  <FieldWordCount text={draft.host_detection_md} />
+                </Box>
+                <Box>
+                  <MarkdownTextarea
+                    ref={fieldRefs.network_detection}
+                    label="Network-Based Detection"
+                    description="IDS/IPS signatures, firewall rules, anomalous traffic patterns, or SIEM correlation logic."
+                    value={draft.network_detection_md ?? ""}
+                    onChange={(v) => set({ network_detection_md: v })}
+                    minRows={4}
+                    onFocus={makeFieldFocusHandler(fieldRefs.network_detection)}
+                  />
+                  <FieldWordCount text={draft.network_detection_md} />
+                </Box>
               </Stack>
             </Tabs.Panel>
 
@@ -339,10 +401,11 @@ export function FindingEditorPage() {
               <MarkdownTextarea
                 ref={fieldRefs.references}
                 label="References"
-                description="CVEs, vendor advisories, research papers."
+                description="CVEs, NVD links, vendor advisories, OWASP entries, or research papers. Use markdown links: [CVE-2021-44228](https://nvd.nist.gov/vuln/detail/CVE-2021-44228)"
                 value={draft.references_md ?? ""}
                 onChange={(v) => set({ references_md: v })}
                 minRows={5}
+                placeholder={"- [CVE-XXXX-XXXXX](https://nvd.nist.gov/...)\n- [OWASP A03:2021 – Injection](https://owasp.org/Top10/A03_2021-Injection/)\n- [Vendor Advisory](https://...)"}
                 onFocus={makeFieldFocusHandler(fieldRefs.references)}
               />
             </Tabs.Panel>
@@ -460,6 +523,7 @@ function EvidenceImageCard({
         cursor: "pointer",
         transition: "border-color 150ms",
       }}
+      onMouseDown={(e) => e.preventDefault()}
       onClick={onInsert}
     >
       <Image

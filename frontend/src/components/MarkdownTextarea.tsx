@@ -10,7 +10,6 @@ import { IconBold, IconCode, IconBraces } from "@tabler/icons-react";
 import { forwardRef, useImperativeHandle, useRef } from "react";
 
 export interface MarkdownHandle {
-  /** Insert text at the current cursor position (or at end). */
   insertAtCursor: (text: string) => void;
 }
 
@@ -27,24 +26,29 @@ interface Props {
 export const MarkdownTextarea = forwardRef<MarkdownHandle, Props>(
   ({ label, description, value, onChange, minRows = 4, placeholder, onFocus }, ref) => {
     const taRef = useRef<HTMLTextAreaElement>(null);
-    // Saved whenever the textarea blurs so toolbar buttons and external
-    // insertions can find the last cursor position even when unfocused.
+    // Always tracks the latest cursor position. Updated on every selection
+    // change so insert() never has to guess the position.
     const savedSel = useRef({ start: 0, end: 0 });
+
+    const saveSel = () => {
+      const el = taRef.current;
+      if (el) savedSel.current = { start: el.selectionStart, end: el.selectionEnd };
+    };
 
     const insert = (text: string) => {
       const el = taRef.current;
-      if (!el) {
-        onChange(value + text);
-        return;
-      }
-      const active = document.activeElement === el;
-      const start = active ? el.selectionStart : savedSel.current.start;
-      const end   = active ? el.selectionEnd   : savedSel.current.end;
+      if (!el) { onChange(value + text); return; }
+
+      // Use the saved cursor — it's kept current by onSelect/onKeyUp/onMouseUp.
+      const { start, end } = savedSel.current;
       const next = value.slice(0, start) + text + value.slice(end);
       onChange(next);
+
+      // Restore cursor after React re-renders the controlled textarea.
+      const cursor = start + text.length;
+      savedSel.current = { start: cursor, end: cursor };
       requestAnimationFrame(() => {
         el.focus();
-        const cursor = start + text.length;
         el.setSelectionRange(cursor, cursor);
       });
     };
@@ -106,11 +110,13 @@ export const MarkdownTextarea = forwardRef<MarkdownHandle, Props>(
           minRows={minRows}
           autosize
           placeholder={placeholder}
-          onFocus={onFocus}
-          onBlur={() => {
-            const el = taRef.current;
-            if (el) savedSel.current = { start: el.selectionStart, end: el.selectionEnd };
+          onFocus={() => {
+            saveSel();
+            onFocus?.();
           }}
+          onSelect={saveSel}
+          onKeyUp={saveSel}
+          onMouseUp={saveSel}
           styles={{
             input: { fontFamily: "var(--mantine-font-family-monospace)", fontSize: 13 },
           }}
